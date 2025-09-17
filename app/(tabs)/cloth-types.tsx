@@ -1,114 +1,125 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, TextInput, Modal, Button, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Alert, Modal, TextInput, Button, KeyboardAvoidingView, Platform } from 'react-native';
 import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db } from '../../config/firebase'; // Adjust this path if needed
+import { db } from '../../config/firebase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Link } from 'expo-router';
 
-const CustomersScreen = () => {
-    const [customers, setCustomers] = useState([]);
-    const [filteredCustomers, setFilteredCustomers] = useState([]);
-    const [searchQuery, setSearchQuery] = useState('');
+const ClothTypesScreen = () => {
+    const [clothTypes, setClothTypes] = useState([]);
     const [modalVisible, setModalVisible] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
-    const [currentCustomer, setCurrentCustomer] = useState(null);
+    const [currentClothType, setCurrentClothType] = useState(null);
     const [name, setName] = useState('');
-    const [address, setAddress] = useState('');
-    const [phone, setPhone] = useState('');
+    const [rate, setRate] = useState('');
 
-    const customersCollectionRef = collection(db, 'customers');
+    const clothTypesCollectionRef = collection(db, 'clothTypes');
 
     useEffect(() => {
-        const unsubscribe = onSnapshot(customersCollectionRef, (snapshot) => {
-            const customersData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-            setCustomers(customersData);
-            setFilteredCustomers(customersData);
+        const unsubscribe = onSnapshot(clothTypesCollectionRef, (snapshot) => {
+            const clothTypesData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+            setClothTypes(clothTypesData);
         });
         return () => unsubscribe();
     }, []);
 
-    useEffect(() => {
-        const filtered = customers.filter(customer =>
-            customer.name.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-        setFilteredCustomers(filtered);
-    }, [searchQuery, customers]);
-
     const handleAddOrUpdate = async () => {
-        if (name.trim() === '' || address.trim() === '' || phone.trim() === '') {
-            Alert.alert('Validation Error', 'Please fill in all fields.');
+        if (name.trim() === '' || rate.trim() === '') {
+            Alert.alert('Validation Error', 'Please enter both name and rate.');
+            return;
+        }
+
+        const rateValue = parseFloat(rate);
+        if (isNaN(rateValue) || rateValue <= 0) {
+            Alert.alert('Validation Error', 'Please enter a valid rate.');
             return;
         }
 
         try {
             if (isEditing) {
-                const customerDoc = doc(db, 'customers', currentCustomer.id);
-                await updateDoc(customerDoc, { name, address, phone });
+                const clothTypeDoc = doc(db, 'clothTypes', currentClothType.id);
+                await updateDoc(clothTypeDoc, { name, rate: rateValue });
             } else {
-                await addDoc(customersCollectionRef, { name, address, phone });
+                await addDoc(clothTypesCollectionRef, { name, rate: rateValue });
             }
             resetForm();
         } catch (error) {
-            console.error('Error saving customer: ', error);
-            Alert.alert('Error', 'There was an error saving the customer.');
+            console.error('Error saving cloth type: ', error);
+            Alert.alert('Error', 'There was an error saving the cloth type.');
         }
     };
-    
-    const openEditModal = (customer) => {
+
+    const handleDelete = (id) => {
+        Alert.alert(
+            "Delete Cloth Type",
+            "Are you sure you want to delete this cloth type?",
+            [
+                { text: "Cancel", style: "cancel" },
+                { 
+                    text: "OK", 
+                    onPress: async () => {
+                        try {
+                            const clothTypeDoc = doc(db, 'clothTypes', id);
+                            await deleteDoc(clothTypeDoc);
+                        } catch (error) {
+                            console.error('Error deleting cloth type: ', error);
+                            Alert.alert('Error', 'There was an error deleting the cloth type.');
+                        }
+                    } 
+                }
+            ]
+        );
+    };
+
+    const openEditModal = (clothType) => {
         setIsEditing(true);
-        setCurrentCustomer(customer);
-        setName(customer.name);
-        setAddress(customer.address);
-        setPhone(customer.phone);
+        setCurrentClothType(clothType);
+        setName(clothType.name);
+        setRate(clothType.rate.toString());
         setModalVisible(true);
     };
 
     const resetForm = () => {
         setIsEditing(false);
-        setCurrentCustomer(null);
+        setCurrentClothType(null);
         setName('');
-        setAddress('');
-        setPhone('');
+        setRate('');
         setModalVisible(false);
     };
 
     const renderItem = ({ item }) => (
-        <Link href={`/(tabs)/customer/${item.id}`} asChild>
-            <TouchableOpacity style={styles.itemContainer}>
-                <View style={styles.itemInfo}>
-                    <Text style={styles.itemName}>{item.name}</Text>
-                    <Text style={styles.itemAddress}>{item.address}</Text>
-                </View>
-            </TouchableOpacity>
-        </Link>
+        <View style={styles.itemContainer}>
+            <View style={styles.itemInfo}>
+                <Text style={styles.itemName}>{item.name}</Text>
+                <Text style={styles.itemRate}>${item.rate.toFixed(2)}</Text>
+            </View>
+            <View style={styles.itemActions}>
+                <TouchableOpacity onPress={() => openEditModal(item)}>
+                    <MaterialCommunityIcons name="pencil" size={24} color="#007bff" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleDelete(item.id)} style={{ marginLeft: 15 }}>
+                    <MaterialCommunityIcons name="delete" size={24} color="#dc3545" />
+                </TouchableOpacity>
+            </View>
+        </View>
     );
 
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Customers</Text>
-            </View>
-            <View style={styles.searchContainer}>
-                <MaterialCommunityIcons name="magnify" size={20} color="#6c757d" style={styles.searchIcon} />
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Search customers"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                />
+                <Text style={styles.headerTitle}>Cloth Types & Rates</Text>
             </View>
             <FlatList
-                data={filteredCustomers}
+                data={clothTypes}
                 renderItem={renderItem}
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.list}
             />
             <TouchableOpacity style={styles.addButton} onPress={() => { setIsEditing(false); setModalVisible(true); }}>
                 <MaterialCommunityIcons name="plus" size={24} color="white" />
-                <Text style={styles.addButtonText}>Add New Customer</Text>
+                <Text style={styles.addButtonText}>Add New Cloth Type</Text>
             </TouchableOpacity>
 
-             <Modal
+            <Modal
                 animationType="slide"
                 transparent={true}
                 visible={modalVisible}
@@ -119,25 +130,19 @@ const CustomersScreen = () => {
                     style={styles.centeredView}
                 >
                     <View style={styles.modalView}>
-                        <Text style={styles.modalTitle}>{isEditing ? 'Edit Customer' : 'Add New Customer'}</Text>
+                        <Text style={styles.modalTitle}>{isEditing ? 'Edit Cloth Type' : 'Add New Cloth Type'}</Text>
                         <TextInput
                             style={styles.input}
-                            placeholder="Full Name"
+                            placeholder="Cloth Name (e.g., Shirt)"
                             value={name}
                             onChangeText={setName}
                         />
                         <TextInput
                             style={styles.input}
-                            placeholder="Address"
-                            value={address}
-                            onChangeText={setAddress}
-                        />
-                         <TextInput
-                            style={styles.input}
-                            placeholder="Phone Number"
-                            value={phone}
-                            onChangeText={setPhone}
-                            keyboardType="phone-pad"
+                            placeholder="Rate (e.g., 2.50)"
+                            value={rate}
+                            onChangeText={setRate}
+                            keyboardType="numeric"
                         />
                         <View style={styles.modalButtons}>
                             <Button title="Cancel" onPress={resetForm} color="#6c757d" />
@@ -149,6 +154,7 @@ const CustomersScreen = () => {
         </SafeAreaView>
     );
 };
+
 
 const styles = StyleSheet.create({
     container: {
@@ -166,28 +172,16 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: 'bold',
     },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#e9ecef',
-        borderRadius: 20,
-        margin: 10,
-        paddingHorizontal: 10,
-    },
-    searchIcon: {
-        marginRight: 5,
-    },
-    searchInput: {
-        flex: 1,
-        height: 40,
-    },
     list: {
-        paddingHorizontal: 10,
+        padding: 10,
     },
     itemContainer: {
         backgroundColor: 'white',
         padding: 15,
         borderRadius: 10,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: 10,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
@@ -196,25 +190,27 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     itemInfo: {
-        // Add styles for name and address
+        flex: 1,
     },
     itemName: {
         fontSize: 18,
         fontWeight: '500',
     },
-    itemAddress: {
-        fontSize: 14,
+    itemRate: {
+        fontSize: 16,
         color: '#6c757d',
     },
-     addButton: {
+    itemActions: {
+        flexDirection: 'row',
+    },
+    addButton: {
         backgroundColor: '#007bff',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: 15,
-        marginHorizontal: 20,
+        margin: 20,
         borderRadius: 10,
-        marginBottom: 10
     },
     addButtonText: {
         color: 'white',
@@ -265,4 +261,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default CustomersScreen;
+export default ClothTypesScreen;
