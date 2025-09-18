@@ -22,7 +22,6 @@ const OrderDetailsScreen = () => {
 
             if (orderSnap.exists()) {
                 const orderData = orderSnap.data();
-                setOrder({ ...orderData, id: orderSnap.id });
 
                 if (orderData.customerId) {
                     const customerRef = doc(db, "customers", orderData.customerId);
@@ -31,6 +30,25 @@ const OrderDetailsScreen = () => {
                         setCustomer(customerSnap.data());
                     }
                 }
+
+                const itemsWithClothTypeNames = await Promise.all(orderData.items.map(async (item) => {
+                    if (item.clothTypeId) {
+                        const clothTypeRef = doc(db, "cloth-types", item.clothTypeId);
+                        const clothTypeSnap = await getDoc(clothTypeRef);
+                        if (clothTypeSnap.exists()) {
+                            const clothTypeData = clothTypeSnap.data();
+                            return { 
+                                ...item, 
+                                clothTypeName: clothTypeData.name,
+                                rate: clothTypeData.price
+                            };
+                        }
+                    }
+                    return item;
+                }));
+
+                setOrder({ ...orderData, id: orderSnap.id, items: itemsWithClothTypeNames });
+
             } else {
                 Alert.alert("Error", "Order not found.");
                 router.back();
@@ -116,15 +134,15 @@ const OrderDetailsScreen = () => {
                     <Text style={styles.sectionTitle}>Order Summary</Text>
                     {order.items.map((item, index) => (
                         <View key={index} style={styles.itemRow}>
-                            <Text style={styles.itemName}>{item.quantity} x {item.clothTypeId}</Text>
-                            <Text style={styles.itemTotal}>${(item.quantity * item.rate).toFixed(2)}</Text>
+                            <Text style={styles.itemName}>{item.quantity || 0} x {item.clothTypeName || 'Unknown'} x ₹{(item.rate || 0).toFixed(2)} each</Text>
+                            <Text style={styles.itemTotal}>₹{((item.quantity || 0) * (item.rate || 0)).toFixed(2)}</Text>
                         </View>
                     ))}
                 </View>
 
                 <View style={styles.totalContainer}>
                     <Text style={styles.totalLabel}>Total Amount</Text>
-                    <Text style={styles.totalAmount}>${order.total.toFixed(2)}</Text>
+                    <Text style={styles.totalAmount}>₹{(order.total || 0).toFixed(2)}</Text>
                 </View>
             </View>
         </ScrollView>
@@ -190,6 +208,8 @@ const getStyles = (width) => {
         itemName: {
             fontSize: responsiveSize(16),
             color: '#333',
+            flex: 1,
+            marginRight: 10
         },
         itemTotal: {
             fontSize: responsiveSize(16),
