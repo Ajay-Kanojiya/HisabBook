@@ -3,7 +3,7 @@ import {
     View, Text, StyleSheet, Alert, TouchableOpacity, useWindowDimensions, ScrollView, ActivityIndicator
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 import { printToFileAsync } from 'expo-print';
 import { shareAsync } from 'expo-sharing';
@@ -101,8 +101,8 @@ const BillDetailsScreen = () => {
                 <td>${index + 1}</td>
                 <td style="text-align: left;">${item.clothTypeName || 'N/A'}</td>
                 <td>${item.quantity || 0}</td>
-                <td>${(item.price || 0).toFixed(2)}</td>
-                <td>${(item.totalPrice || 0).toFixed(2)}</td>
+                <td>₹${(item.price || 0).toFixed(2)}</td>
+                <td>₹${(item.totalPrice || 0).toFixed(2)}</td>
             </tr>
         `).join('');
 
@@ -125,18 +125,18 @@ const BillDetailsScreen = () => {
         .item-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         .item-table th, .item-table td { border: 1px solid #ddd; padding: 8px; text-align: center; }
         .item-table th { background-color: #f2f2f2; }
-        .footer { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; border-top: 1px solid #ddd; padding-top: 10px;}
+        .footer { display: flex; justify-content: space-between; align-items: flex-start; margin-top: 20px; border-top: 1px solid #ddd; padding-top: 10px;}
     </style>
 </head>
 <body>
     <div class="invoice-box">
         <div class="header">
             <div class="company-details">
-                <div class="company-name">${shop.shopName}</div>
+                <div class="company-name">${shop.shopName ?? '-'}</div>
                 <div class="slogan">Your Slogan</div>
-                <div>${shop.address}</div>
-                <div>${shop.mobile}</div>
-                <div>${shop.email}</div>
+                <div>${shop.address ?? '-'}</div>
+                <div>${shop.mobile ?? '-'}</div>
+                <div>${shop.email ?? '-'}</div>
             </div>
             <div class="invoice-details">
                 <div class="invoice-title">INVOICE</div>
@@ -164,8 +164,8 @@ const BillDetailsScreen = () => {
                     <th>Sl.No.</th>
                     <th>Description</th>
                     <th>Qty.</th>
-                    <th>Rate</th>
-                    <th>Amount</th>
+                    <th>Rate (₹)</th>
+                    <th>Amount (₹)</th>
                 </tr>
             </thead>
             <tbody>
@@ -173,9 +173,9 @@ const BillDetailsScreen = () => {
             </tbody>
         </table>
         <div class="footer">
-            <div><strong>Rupees in words:</strong> ${numberToWords(bill.total)}</div>
+            <div style="flex: 1; margin-right: 10px;"><strong>Rupees in words:</strong> ${numberToWords(bill.total)}</div>
             <div style="text-align: right;">
-                <strong>Total:</strong> ${(bill.total || 0).toFixed(2)}
+                <strong>Total:</strong> ₹${(bill.total || 0).toFixed(2)}
             </div>
         </div>
     </div>
@@ -205,11 +205,11 @@ const BillDetailsScreen = () => {
                 <View style={styles.invoiceBox}>
                     <View style={styles.header}>
                         <View style={styles.companyDetails}>
-                            <Text style={styles.companyName}>{shop?.shopName}</Text>
+                            <Text style={styles.companyName}>{shop?.shopName ?? '-'}</Text>
                             <Text style={styles.slogan}>Your Slogan</Text>
-                            <Text>{shop?.address}</Text>
-                            <Text>{shop?.mobile}</Text>
-                            <Text>{shop?.email}</Text>
+                            <Text>{shop?.address ?? '-'}</Text>
+                            <Text>{shop?.mobile ?? '-'}</Text>
+                            <Text>{shop?.email ?? '-'}</Text>
                         </View>
                         <View style={styles.invoiceDetails}>
                             <Text style={styles.invoiceTitle}>INVOICE</Text>
@@ -235,29 +235,32 @@ const BillDetailsScreen = () => {
 
                     <View style={styles.itemTable}>
                         <View style={styles.tableHeader}>
-                            <Text style={[styles.headerText, {width: '10%', textAlign: 'center'}]}>Sl.No.</Text>
-                            <Text style={[styles.headerText, {width: '40%', textAlign: 'left'}]}>Description</Text>
+                            <Text style={[styles.headerText, {width: '15%', textAlign: 'center'}]}>Sl.No.</Text>
+                            <Text style={[styles.headerText, {width: '35%', textAlign: 'left'}]}>Description</Text>
                             <Text style={[styles.headerText, {width: '10%', textAlign: 'center'}]}>Qty.</Text>
-                            <Text style={[styles.headerText, {width: '20%', textAlign: 'center'}]}>Rate</Text>
-                            <Text style={[styles.headerText, {width: '20%', textAlign: 'center'}]}>Amount</Text>
+                            <Text style={[styles.headerText, {width: '20%', textAlign: 'center'}]}>Rate (₹)</Text>
+                            <Text style={[styles.headerText, {width: '20%', textAlign: 'center'}]}>Amount (₹)</Text>
                         </View>
                         {order?.items.map((item, index) => (
                             <View key={index} style={styles.tableRow}>
-                                <Text style={{width: '10%', textAlign: 'center'}}>{index + 1}</Text>
-                                <Text style={{width: '40%', textAlign: 'left'}}>{item.clothTypeName || 'N/A'}</Text>
+                                <Text style={{width: '15%', textAlign: 'center'}}>{index + 1}</Text>
+                                <Text style={{width: '35%', textAlign: 'left'}}>{item.clothTypeName || 'N/A'}</Text>
                                 <Text style={{width: '10%', textAlign: 'center'}}>{item.quantity || 0}</Text>
-                                <Text style={{width: '20%', textAlign: 'center'}}>{(item.price || 0).toFixed(2)}</Text>
-                                <Text style={{width: '20%', textAlign: 'center'}}>{(item.totalPrice || 0).toFixed(2)}</Text>
+                                <Text style={{width: '20%', textAlign: 'center'}}>₹{(item.price || 0).toFixed(2)}</Text>
+                                <Text style={{width: '20%', textAlign: 'center'}}>₹{(item.totalPrice || 0).toFixed(2)}</Text>
                             </View>
                         ))}
                     </View>
 
                     <View style={styles.footer}>
-                        <Text style={{fontWeight: 'bold'}}>Rupees in words: {numberToWords(bill.total)}</Text>
+                        <View style={{flex: 1, marginRight: 10, flexDirection: 'row', flexWrap: 'wrap' }}>
+                            <Text style={{fontWeight: 'bold'}}>Rupees in words: </Text>
+                            <Text>{numberToWords(bill.total)}</Text>
+                        </View>
                         <View style={{alignItems: 'flex-end'}}>
                             <View style={{flexDirection: 'row'}}>
                                 <Text style={{fontWeight: 'bold'}}>Total: </Text>
-                                <Text>{(bill.total || 0).toFixed(2)}</Text>
+                                <Text>₹{(bill.total || 0).toFixed(2)}</Text>
                             </View>
                         </View>
                     </View>
@@ -293,7 +296,7 @@ const getStyles = (width) => {
         tableHeader: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#000', paddingVertical: responsiveSize(5) },
         headerText: { fontWeight: 'bold' },
         tableRow: { flexDirection: 'row', paddingVertical: responsiveSize(5), borderBottomWidth: 1, borderBottomColor: '#eee'},
-        footer: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#000', paddingTop: responsiveSize(10), marginTop: responsiveSize(10) },
+        footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', borderTopWidth: 1, borderTopColor: '#000', paddingTop: responsiveSize(10), marginTop: responsiveSize(10) },
         downloadButton: { backgroundColor: '#007bff', padding: responsiveSize(15), alignItems: 'center', justifyContent: 'center', margin: responsiveSize(20), borderRadius: responsiveSize(10) },
         downloadButtonText: { color: 'white', fontSize: responsiveSize(18), fontWeight: 'bold' },
     });
