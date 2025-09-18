@@ -411,7 +411,7 @@ const getStyles = (width) => {
             borderBottomColor: '#dee2e6',
         },
         pickerContainer: { 
-            flex: 1, 
+            flex: isSmallScreen ? 0 : 1,
             borderWidth: 1, 
             borderColor: '#ced4da', 
             borderRadius: 8, 
@@ -448,25 +448,26 @@ const getStyles = (width) => {
         itemTotal: { fontSize: responsiveSize(16), fontWeight: 'bold', color: '#343a40' },
         itemDate: { fontSize: responsiveSize(12), color: '#6c757d', marginTop: 4 },
         itemFooter: { 
-            flexDirection: 'row', 
+            flexDirection: isSmallScreen ? 'column' : 'row', 
             justifyContent: 'space-between', 
             alignItems: 'center', 
             marginTop: responsiveSize(10) 
         },
         statusPickerContainer: {
-            flex: isSmallScreen ? 0.6 : 0.5,
+            width: isSmallScreen ? '100%' : '50%',
             borderWidth: 1,
             borderColor: '#ced4da',
             borderRadius: 8,
             justifyContent: 'center',
             height: responsiveSize(40),
+            marginBottom: isSmallScreen ? 10 : 0,
         },
         statusPicker: { 
             width: '100%',
             height: responsiveSize(40),
         },
         actionsContainer: { 
-            flex: isSmallScreen ? 0.4 : 0.5,
+            width: isSmallScreen ? '100%' : '50%',
             flexDirection: 'row', 
             alignItems: 'center', 
             justifyContent: 'flex-end' 
