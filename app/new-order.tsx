@@ -195,7 +195,7 @@ const NewOrderScreen = () => {
                                 </TouchableOpacity>
                             </View>
                         </View>
-                    ))ท
+                    ))}
 
                     <TouchableOpacity style={styles.addItemButton} onPress={addItem}>
                         <Text style={styles.addItemText}>+ Add Item</Text>
