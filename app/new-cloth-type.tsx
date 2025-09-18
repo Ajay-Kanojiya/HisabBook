@@ -7,14 +7,14 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const NewClothTypeScreen = () => {
     const [name, setName] = useState('');
-    const [rate, setRate] = useState('');
+    const [price, setPrice] = useState('');
     const router = useRouter();
     const user = auth.currentUser;
     const { width } = useWindowDimensions();
     const styles = getStyles(width);
 
     const handleSave = async () => {
-        if (!name || !rate) {
+        if (!name || !price) {
             Alert.alert('Error', 'Please fill in all fields.');
             return;
         }
@@ -26,7 +26,7 @@ const NewClothTypeScreen = () => {
         try {
             await addDoc(collection(db, 'cloth-types'), {
                 name: name,
-                rate: parseFloat(rate),
+                price: parseFloat(price),
                 userEmail: user.email,
                 lastModified: serverTimestamp(),
             });
@@ -56,13 +56,13 @@ const NewClothTypeScreen = () => {
                     value={name}
                     onChangeText={setName}
                 />
-                <Text style={styles.label}>Rate</Text>
+                <Text style={styles.label}>Price (₹)</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder="Enter rate per item"
+                    placeholder="Enter price per item (in ₹)"
                     placeholderTextColor="#888"
-                    value={rate}
-                    onChangeText={setRate}
+                    value={price}
+                    onChangeText={setPrice}
                     keyboardType="numeric"
                 />
                 <TouchableOpacity style={styles.saveButton} onPress={handleSave}>

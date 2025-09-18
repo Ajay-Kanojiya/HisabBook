@@ -9,7 +9,7 @@ import { Picker } from '@react-native-picker/picker';
 const NewOrderScreen = () => {
     const [customer, setCustomer] = useState('');
     const [customers, setCustomers] = useState([]);
-    const [items, setItems] = useState([{ clothTypeId: '', quantity: '', rate: 0, price: 0 }]);
+    const [items, setItems] = useState([{ clothTypeId: '', quantity: '', price: 0, totalPrice: 0 }]);
     const [clothTypes, setClothTypes] = useState([]);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
@@ -71,18 +71,18 @@ const NewOrderScreen = () => {
 
         if (field === 'clothTypeId') {
             const selectedClothType = clothTypes.find(ct => ct.id === value);
-            currentItem.rate = selectedClothType ? selectedClothType.rate : 0;
+            currentItem.price = selectedClothType ? selectedClothType.price : 0;
         }
 
         const quantity = parseFloat(currentItem.quantity);
-        currentItem.price = isNaN(quantity) || quantity <= 0 ? 0 : quantity * currentItem.rate;
+        currentItem.totalPrice = isNaN(quantity) || quantity <= 0 ? 0 : quantity * currentItem.price;
         
         newItems[index] = currentItem;
         setItems(newItems);
     };
 
     const addItem = () => {
-        setItems([...items, { clothTypeId: '', quantity: '', rate: 0, price: 0 }]);
+        setItems([...items, { clothTypeId: '', quantity: '', price: 0, totalPrice: 0 }]);
     };
 
     const removeItem = (index) => {
@@ -103,7 +103,7 @@ const NewOrderScreen = () => {
             return;
         }
 
-        const total = items.reduce((sum, item) => sum + item.price, 0);
+        const total = items.reduce((sum, item) => sum + item.totalPrice, 0);
 
         try {
             await addDoc(collection(db, 'orders'), {
@@ -112,8 +112,8 @@ const NewOrderScreen = () => {
                 items: items.map(item => ({
                     clothTypeId: item.clothTypeId,
                     quantity: parseFloat(item.quantity) || 0,
-                    rate: item.rate,
-                    price: item.price
+                    price: item.price,
+                    totalPrice: item.totalPrice
                 })),
                 total,
                 status: 'Pending',
@@ -189,7 +189,7 @@ const NewOrderScreen = () => {
                                 />
                             </View>
                             <View style={styles.itemFooter}>
-                                <Text style={styles.priceText}>Price/Item: <Text style={styles.priceValue}>${item.price.toFixed(2)}</Text></Text>
+                                <Text style={styles.priceText}>Price/Item: <Text style={styles.priceValue}>₹{item.totalPrice.toFixed(2)}</Text></Text>
                                 <TouchableOpacity onPress={() => removeItem(index)}>
                                     <MaterialCommunityIcons name="delete" size={styles.iconSize} color="#dc3545" />
                                 </TouchableOpacity>

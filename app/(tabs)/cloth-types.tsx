@@ -79,7 +79,7 @@ const ClothTypesScreen = () => {
             </View>
             <View style={styles.itemInfo}>
                 <Text style={styles.itemName}>{item.name}</Text>
-                <Text style={styles.itemRate}>${parseFloat(item.rate || 0).toFixed(2)}</Text>
+                <Text style={styles.itemPrice}>₹{parseFloat(item.price || 0).toFixed(2)}</Text>
             </View>
             <View style={styles.itemActions}>
                 <TouchableOpacity onPress={() => router.push(`/edit-cloth-type/${item.id}`)}>
@@ -187,7 +187,7 @@ const getStyles = (width) => {
             fontWeight: '600',
             color: '#000',
         },
-        itemRate: {
+        itemPrice: {
             fontSize: responsiveSize(14),
             color: '#6c757d',
             marginTop: responsiveSize(2),

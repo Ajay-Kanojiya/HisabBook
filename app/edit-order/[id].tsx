@@ -10,7 +10,7 @@ const EditOrderScreen = () => {
     const { id } = useLocalSearchParams();
     const [customer, setCustomer] = useState(null);
     const [customers, setCustomers] = useState([]);
-    const [items, setItems] = useState([{ clothTypeId: null, quantity: '1', rate: 0 }]);
+    const [items, setItems] = useState([{ clothTypeId: null, quantity: '1', price: 0 }]);
     const [clothTypes, setClothTypes] = useState([]);
     const [total, setTotal] = useState(0);
     const router = useRouter();
@@ -65,7 +65,7 @@ const EditOrderScreen = () => {
         const calculateTotal = () => {
             const newTotal = items.reduce((sum, item) => {
                 const quantity = parseInt(item.quantity, 10) || 0;
-                return sum + (quantity * item.rate);
+                return sum + (quantity * item.price);
             }, 0);
             setTotal(newTotal);
         };
@@ -78,14 +78,14 @@ const EditOrderScreen = () => {
 
         if (field === 'clothTypeId') {
             const selectedClothType = clothTypes.find(ct => ct.id === value);
-            newItems[index]['rate'] = selectedClothType ? selectedClothType.rate : 0;
+            newItems[index]['price'] = selectedClothType ? selectedClothType.price : 0;
         }
 
         setItems(newItems);
     };
 
     const addItem = () => {
-        setItems([...items, { clothTypeId: null, quantity: '1', rate: 0 }]);
+        setItems([...items, { clothTypeId: null, quantity: '1', price: 0 }]);
     };
 
     const removeItem = (index) => {
@@ -156,7 +156,7 @@ const EditOrderScreen = () => {
                             >
                                 <Picker.Item label="Select Item" value={null} />
                                 {clothTypes.map((ct) => (
-                                    <Picker.Item key={ct.id} label={`${ct.name} (@ $${ct.rate})`} value={ct.id} />
+                                    <Picker.Item key={ct.id} label={`${ct.name} (@ ₹${ct.price})`} value={ct.id} />
                                 ))}
                             </Picker>
                         </View>
@@ -179,7 +179,7 @@ const EditOrderScreen = () => {
 
                 <View style={styles.totalContainer}>
                     <Text style={styles.totalText}>Total:</Text>
-                    <Text style={styles.totalAmount}>${total.toFixed(2)}</Text>
+                    <Text style={styles.totalAmount}>₹{total.toFixed(2)}</Text>
                 </View>
 
                 <TouchableOpacity style={styles.saveButton} onPress={handleSave}>

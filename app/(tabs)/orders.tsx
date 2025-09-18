@@ -106,11 +106,11 @@ const OrdersScreen = () => {
                         <MaterialCommunityIcons name="receipt" size={styles.iconSize} color="#007bff" />
                     </View>
                     <View style={styles.itemInfo}>
-                        <Text style={styles.itemName}>Order #{item.id.substring(0, 5)}</Text>
-                        <Text style={styles.itemSubtitle}>{item.customerName} · {item.items.length} items</Text>
+                        <Text style={styles.itemName}>{item.customerName}</Text>
+                        <Text style={styles.itemSubtitle}>Order #{item.id.substring(0, 6)} · {item.items.length} items</Text>
                     </View>
                     <View style={styles.itemRight}>
-                        <Text style={styles.itemTotal}>${item.total.toFixed(2)}</Text>
+                        <Text style={styles.itemTotal}>₹{item.total.toFixed(2)}</Text>
                         <Text style={styles.itemDate}>{formatDate(item.lastModified)}</Text>
                     </View>
                 </View>

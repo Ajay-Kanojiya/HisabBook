@@ -8,7 +8,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 const EditClothTypeScreen = () => {
     const { id } = useLocalSearchParams();
     const [name, setName] = useState('');
-    const [rate, setRate] = useState('');
+    const [price, setPrice] = useState('');
     const router = useRouter();
     const { width } = useWindowDimensions();
     const styles = getStyles(width);
@@ -21,7 +21,7 @@ const EditClothTypeScreen = () => {
                 if (docSnap.exists()) {
                     const clothTypeData = docSnap.data();
                     setName(clothTypeData.name);
-                    setRate(clothTypeData.rate.toString());
+                    setPrice(clothTypeData.price.toString());
                 }
             } catch (error) {
                 console.error("Error fetching cloth type: ", error);
@@ -31,7 +31,7 @@ const EditClothTypeScreen = () => {
     }, [id]);
 
     const handleUpdate = async () => {
-        if (!name || !rate) {
+        if (!name || !price) {
             Alert.alert('Error', 'Please fill in all fields.');
             return;
         }
@@ -40,7 +40,7 @@ const EditClothTypeScreen = () => {
             const docRef = doc(db, 'cloth-types', id as string);
             await updateDoc(docRef, {
                 name: name,
-                rate: parseFloat(rate),
+                price: parseFloat(price),
                 lastModified: serverTimestamp(),
             });
             Alert.alert('Success', 'Cloth type updated successfully.');
@@ -69,13 +69,13 @@ const EditClothTypeScreen = () => {
                     value={name}
                     onChangeText={setName}
                 />
-                <Text style={styles.label}>Rate</Text>
+                <Text style={styles.label}>Price (₹)</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder="Enter rate per item"
+                    placeholder="Enter price per item (in ₹)"
                     placeholderTextColor="#888"
-                    value={rate}
-                    onChangeText={setRate}
+                    value={price}
+                    onChangeText={setPrice}
                     keyboardType="numeric"
                 />
                 <TouchableOpacity style={styles.saveButton} onPress={handleUpdate}>

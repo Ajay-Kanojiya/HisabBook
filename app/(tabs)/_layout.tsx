@@ -48,9 +48,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="invoices"
+        name="bills"
         options={{
-          title: 'Invoices',
+          title: 'Bills',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="file-document-outline" color={color} size={size} />
           ),
