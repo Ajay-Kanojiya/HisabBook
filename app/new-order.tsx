@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity, useWindowDimensions, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity, useWindowDimensions, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { collection, addDoc, serverTimestamp, getDocs, query } from 'firebase/firestore';
 import { db, auth } from '@/config/firebase';
@@ -20,7 +20,6 @@ const NewOrderScreen = () => {
     const fetchCustomersAndClothTypes = async () => {
         setLoading(true);
         try {
-            // Fetch and Vigorously Validate Customers
             const customersQuery = query(collection(db, 'customers'));
             const customersSnapshot = await getDocs(customersQuery);
             const customersList = customersSnapshot.docs
@@ -33,10 +32,9 @@ const NewOrderScreen = () => {
                     }
                     return { ...data, id: doc.id };
                 })
-                .filter(Boolean); // This securely removes any null (invalid) entries
+                .filter(Boolean);
             setCustomers(customersList);
 
-            // Fetch and Vigorously Validate Cloth Types
             const clothTypesQuery = query(collection(db, 'cloth-types'));
             const clothTypesSnapshot = await getDocs(clothTypesQuery);
             const clothTypesList = clothTypesSnapshot.docs
@@ -49,7 +47,7 @@ const NewOrderScreen = () => {
                     }
                     return { ...data, id: doc.id };
                 })
-                .filter(Boolean); // This securely removes any null (invalid) entries
+                .filter(Boolean); 
             setClothTypes(clothTypesList);
 
         } catch (error) {
@@ -191,13 +189,13 @@ const NewOrderScreen = () => {
                                 />
                             </View>
                             <View style={styles.itemFooter}>
-                                <Text style={styles.priceText}>Price/Item: <Text style={styles.priceValue}>${item.price > 0 ? item.price.toFixed(2) : 'NaN'}</Text></Text>
+                                <Text style={styles.priceText}>Price/Item: <Text style={styles.priceValue}>${item.price.toFixed(2)}</Text></Text>
                                 <TouchableOpacity onPress={() => removeItem(index)}>
                                     <MaterialCommunityIcons name="delete" size={styles.iconSize} color="#dc3545" />
                                 </TouchableOpacity>
                             </View>
                         </View>
-                    ))}
+                    ))ท
 
                     <TouchableOpacity style={styles.addItemButton} onPress={addItem}>
                         <Text style={styles.addItemText}>+ Add Item</Text>
@@ -276,10 +274,11 @@ const getStyles = (width) => {
             borderColor: '#dee2e6',
             justifyContent: 'center',
             marginBottom: responsiveSize(25),
+            height: responsiveSize(50),
         },
         picker: {
-            height: responsiveSize(50),
             width: '100%',
+            color: '#343a40',
         },
         itemsHeader: {
             fontSize: responsiveSize(18),
@@ -308,6 +307,7 @@ const getStyles = (width) => {
             borderColor: '#dee2e6',
             marginRight: responsiveSize(10),
             justifyContent: 'center',
+            height: responsiveSize(50),
         },
         quantityInput: {
             flex: 1,
