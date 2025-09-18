@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db, auth } from '../../config/firebase';
+import { db, auth } from '@/config/firebase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { logActivity } from '../utils/logActivity';
+import { logActivity } from '@/utils/logActivity';
 
 const EditCustomerScreen = () => {
     const { id } = useLocalSearchParams();

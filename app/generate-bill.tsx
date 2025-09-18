@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, Alert, TouchableOpacity, useWindowDimensions, Platform, ActivityIndicator } from 'react-native';
+
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Alert, TouchableOpacity, useWindowDimensions, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { collection, addDoc, serverTimestamp, getDocs, query, where } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/config/firebase';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -21,7 +22,7 @@ const GenerateBillScreen = () => {
     const styles = getStyles(width);
 
     useEffect(() => {
-        const fetchCustomers = async () => {
+        const fetchData = async () => {
             if (!user) return;
             setLoading(true);
             try {
@@ -29,86 +30,104 @@ const GenerateBillScreen = () => {
                 const customersSnapshot = await getDocs(customersQuery);
                 const customersList = customersSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
                 setCustomers(customersList);
+
+                const ordersQuery = query(collection(db, 'orders'), where("userEmail", "==", user.email), orderBy("lastModified", "asc"));
+                const ordersSnapshot = await getDocs(ordersQuery);
+
+                if (!ordersSnapshot.empty) {
+                    const firstOrder = ordersSnapshot.docs[0].data();
+                    const lastOrder = ordersSnapshot.docs[ordersSnapshot.docs.length - 1].data();
+                    if (firstOrder.lastModified) setStartDate(firstOrder.lastModified.toDate());
+                    if (lastOrder.lastModified) setEndDate(lastOrder.lastModified.toDate());
+                }
+                
             } catch (error) {
-                console.error("Error fetching customers: ", error);
-                Alert.alert("Error", "Could not fetch customers.");
+                console.error("Error fetching initial data: ", error);
+                if (error.code === 'failed-precondition') {
+                    Alert.alert("Database Index Required", "A database index is required. Please check the terminal for a link to create it.");
+               } else {
+                   Alert.alert("Error", "Could not fetch initial data.");
+               }
             } finally {
                 setLoading(false);
             }
         };
-        fetchCustomers();
+        fetchData();
     }, [user]);
 
     const handleGenerateBill = async () => {
-        if (!selectedCustomer || !startDate || !endDate) {
-            Alert.alert("Invalid Input", "Please select a customer and a valid date range.");
+        if (!selectedCustomer) {
+            Alert.alert("Invalid Input", "Please select a customer.");
             return;
         }
         if (!user) {
-            Alert.alert("Authentication Error", "You must be logged in to generate a bill.");
+            Alert.alert("Authentication Error", "You must be logged in.");
             return;
         }
 
-        // Set time to the beginning of the start day and end of the end day
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
+        setLoading(true);
 
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
+        const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0);
+        const end = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() + 1, 0, 0, 0);
 
         try {
-            // Fetch orders within the date range for the selected customer
             const ordersQuery = query(
                 collection(db, 'orders'),
                 where("userEmail", "==", user.email),
                 where("customerId", "==", selectedCustomer),
-                where("createdAt", ">=", start),
-                where("createdAt", "<=", end)
+                where("lastModified", ">=", start),
+                where("lastModified", "<", end)
             );
 
             const ordersSnapshot = await getDocs(ordersQuery);
+
             if (ordersSnapshot.empty) {
-                Alert.alert("No Orders", "No orders found for the selected customer in this date range.");
+                console.log("Query executed, but no documents were found.");
+                Alert.alert("No Orders Found", "No orders were found for the selected customer and date range.");
+                setLoading(false);
                 return;
             }
 
-            const totalAmount = ordersSnapshot.docs.reduce((acc, doc) => acc + doc.data().total, 0);
+            const orders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const totalAmount = orders.reduce((acc, order) => acc + order.total, 0);
+            const orderIds = orders.map(order => order.id);
 
-            // Create a new bill
             await addDoc(collection(db, 'bills'), {
                 userEmail: user.email,
                 customerId: selectedCustomer,
                 createdAt: serverTimestamp(),
                 startDate: start,
-                endDate: end,
+                endDate: endDate,
                 total: totalAmount,
-                status: 'Pending', // Default status
+                status: 'Pending',
+                orderIds: orderIds,
             });
 
-            Alert.alert("Success", "Bill generated successfully.");
-            router.back();
+            Alert.alert("Success", "Bill generated successfully!");
+            router.replace('/(tabs)/bills');
 
         } catch (error) {
             console.error("Error generating bill: ", error);
-            Alert.alert("Error", "Could not generate bill. Please check your Firestore indexes.");
+            if (error.code === 'failed-precondition') {
+                 Alert.alert("Database Index Required", "A database index is missing. Check the terminal for a URL to create it.");
+            } else {
+                Alert.alert("Error", `Could not generate bill. ${error.message}`);
+            }
+        } finally {
+            setLoading(false);
         }
     };
     
     const onDateChange = (event, selectedDate, type) => {
-        if (type === 'start') {
-            setShowStartDatePicker(false);
-            if (selectedDate) {
-                setStartDate(selectedDate);
-            }
-        } else {
-            setShowEndDatePicker(false);
-            if (selectedDate) {
-                setEndDate(selectedDate);
-            }
+        const pickerState = type === 'start' ? setShowStartDatePicker : setShowEndDatePicker;
+        const dateState = type === 'start' ? setStartDate : setEndDate;
+        pickerState(false);
+        if (selectedDate) {
+            dateState(selectedDate);
         }
     };
 
-    if (loading) {
+    if (loading && !customers.length) {
         return <ActivityIndicator size="large" color="#007bff" style={{flex: 1, justifyContent: 'center'}} />;
     }
 
@@ -172,8 +191,8 @@ const GenerateBillScreen = () => {
                     />
                 )}
 
-                <TouchableOpacity style={styles.generateButton} onPress={handleGenerateBill}>
-                    <Text style={styles.generateButtonText}>Generate Bill</Text>
+                <TouchableOpacity style={styles.generateButton} onPress={handleGenerateBill} disabled={loading}>
+                    {loading ? <ActivityIndicator color="white" /> : <Text style={styles.generateButtonText}>Generate Bill</Text>}
                 </TouchableOpacity>
             </View>
         </View>
@@ -194,7 +213,7 @@ const getStyles = (width) => {
         dateInput: { flex: 1, marginRight: 10 },
         dateDisplay: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white', borderRadius: 8, borderWidth: 1, borderColor: '#ced4da', padding: 15 },
         dateText: { fontSize: 16 * scale },
-        generateButton: { backgroundColor: '#007bff', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 20 },
+        generateButton: { backgroundColor: '#007bff', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 20, minHeight: 50, justifyContent: 'center' },
         generateButtonText: { color: 'white', fontSize: 18 * scale, fontWeight: 'bold' },
     });
 };

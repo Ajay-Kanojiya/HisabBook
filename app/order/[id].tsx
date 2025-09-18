@@ -39,8 +39,7 @@ const OrderDetailsScreen = () => {
                             const clothTypeData = clothTypeSnap.data();
                             return { 
                                 ...item, 
-                                clothTypeName: clothTypeData.name,
-                                rate: clothTypeData.price
+                                clothTypeName: clothTypeData.name
                             };
                         }
                     }
@@ -134,8 +133,8 @@ const OrderDetailsScreen = () => {
                     <Text style={styles.sectionTitle}>Order Summary</Text>
                     {order.items.map((item, index) => (
                         <View key={index} style={styles.itemRow}>
-                            <Text style={styles.itemName}>{item.quantity || 0} x {item.clothTypeName || 'Unknown'} x ₹{(item.rate || 0).toFixed(2)} each</Text>
-                            <Text style={styles.itemTotal}>₹{((item.quantity || 0) * (item.rate || 0)).toFixed(2)}</Text>
+                            <Text style={styles.itemName}>{item.quantity || 0} x {item.clothTypeName || 'Unknown'} x ₹{(item.price || 0).toFixed(2)} each</Text>
+                            <Text style={styles.itemTotal}>₹{(item.totalPrice || 0).toFixed(2)}</Text>
                         </View>
                     ))}
                 </View>

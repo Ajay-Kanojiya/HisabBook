@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity, useWindowDimensions, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { collection, addDoc, serverTimestamp, getDocs, query } from 'firebase/firestore';
-import { db, auth } from '../config/firebase';
+import { db, auth } from '@/config/firebase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import { logActivity } from '../utils/logActivity';
+import { logActivity } from '@/utils/logActivity';
 
 const NewOrderScreen = () => {
     const [customer, setCustomer] = useState('');

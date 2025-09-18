@@ -81,12 +81,6 @@ const OrdersScreen = () => {
     const formatDate = (timestamp) => {
         if (!timestamp) return 'N/A';
         const date = timestamp.toDate();
-        const now = new Date();
-        const diff = Math.round((now - date) / (1000 * 60 * 60 * 24));
-
-        if (diff === 0) return 'Today';
-        if (diff === 1) return 'Yesterday';
-        if (diff <= 7) return `${diff} days ago`;
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     };
 

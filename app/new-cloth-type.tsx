@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../config/firebase';
+import { db, auth } from '@/config/firebase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { logActivity } from './utils/logActivity';
+import { logActivity } from '@/utils/logActivity';
 
 const NewClothTypeScreen = () => {
     const [name, setName] = useState('');

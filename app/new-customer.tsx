@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '@/config/firebase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { logActivity } from '../utils/logActivity';
+import { logActivity } from '@/utils/logActivity';
 
 const NewCustomerScreen = () => {
     const [name, setName] = useState('');

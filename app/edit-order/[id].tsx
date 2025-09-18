@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity, useWindowDimensions, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { doc, getDoc, updateDoc, deleteDoc, collection, getDocs, query } from 'firebase/firestore';
-import { db, auth } from '../../config/firebase';
+import { db, auth } from '@/config/firebase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import { logActivity } from '../utils/logActivity';
+import { logActivity } from '@/utils/logActivity';
 
 const EditOrderScreen = () => {
     const { id } = useLocalSearchParams();

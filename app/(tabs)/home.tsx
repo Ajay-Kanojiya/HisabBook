@@ -160,9 +160,9 @@ const HomeScreen = () => {
             </View>
 
             <View style={styles.statsContainer}>
-                <StatCard icon="account-group-outline" title="Total Customers" value={stats.totalCustomers} color="#007bff" />
-                <StatCard icon="cash-check" title="Total Amount Paid" value={`₹${stats.totalPaid.toFixed(2)}`} color="#28a745" />
-                <StatCard icon="cash-clock" title="Total Pending Amount" value={`₹${stats.totalPending.toFixed(2)}`} color="#dc3545" />
+                <StatCard icon="account-group-outline" title="Total Customers" value={stats.totalCustomers} color="#007bff" styles={styles} />
+                <StatCard icon="cash-check" title="Total Amount Paid" value={`₹${stats.totalPaid.toFixed(2)}`} color="#28a745" styles={styles} />
+                <StatCard icon="cash-clock" title="Total Pending Amount" value={`₹${stats.totalPending.toFixed(2)}`} color="#dc3545" styles={styles} />
             </View>
 
             <Text style={styles.recentActivityTitle}>Recent Activity</Text>
@@ -173,8 +173,7 @@ const HomeScreen = () => {
     );
 };
 
-const StatCard = ({ icon, title, value, color }) => {
-    const styles = getStyles(useWindowDimensions().width);
+const StatCard = ({ icon, title, value, color, styles }) => {
     return (
         <View style={[styles.statCard, { backgroundColor: `${color}20` }]}>
             <MaterialCommunityIcons name={icon} size={24} color={color} />
