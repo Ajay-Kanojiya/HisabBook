@@ -3,7 +3,7 @@ import {
     View, Text, StyleSheet, Alert, TouchableOpacity, useWindowDimensions, ScrollView, ActivityIndicator
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 import { printToFileAsync } from 'expo-print';
 import { shareAsync } from 'expo-sharing';
@@ -39,10 +39,15 @@ const BillDetailsScreen = () => {
         try {
             const user = auth.currentUser;
             if (user) {
-                const shopRef = doc(db, 'shop', user.uid);
-                const shopSnap = await getDoc(shopRef);
-                if (shopSnap.exists()) {
-                    setShop(shopSnap.data());
+                const shopsRef = collection(db, 'shops');
+                const q = query(shopsRef, where("userEmail", "==", user.email));
+                const shopsSnap = await getDocs(q);
+                if (!shopsSnap.empty) {
+                    // Assuming there is only one shop document per user or a general shop
+                    const shopDoc = shopsSnap.docs[0];
+                    setShop(shopDoc.data());
+                } else {
+                    Alert.alert("Error", "Shop details could not be found.");
                 }
             }
 
@@ -94,7 +99,10 @@ const BillDetailsScreen = () => {
     useFocusEffect(useCallback(() => { if (id) fetchBillDetails(); }, [id]));
 
     const handleDownloadPdf = async () => {
-        if (!bill || !customer || !order || !shop) return;
+        if (!bill || !customer || !order || !shop) {
+            Alert.alert("Missing Details", "Cannot generate PDF. Some details are missing.");
+            return;
+        }
 
         const itemsHtml = order.items.map((item, index) => `
             <tr>
@@ -297,7 +305,7 @@ const getStyles = (width) => {
         headerText: { fontWeight: 'bold' },
         tableRow: { flexDirection: 'row', paddingVertical: responsiveSize(5), borderBottomWidth: 1, borderBottomColor: '#eee'},
         footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', borderTopWidth: 1, borderTopColor: '#000', paddingTop: responsiveSize(10), marginTop: responsiveSize(10) },
-        downloadButton: { backgroundColor: '#007bff', padding: responsiveSize(15), alignItems: 'center', justifyContent: 'center', margin: responsiveSize(20), borderRadius: responsiveSize(10) },
+        downloadButton: { backgroundColor: '#007bff', padding: responsiveSize(15), alignItems: 'center', justifyContent: 'center', margin: responsive.size(20), borderRadius: responsiveSize(10) },
         downloadButtonText: { color: 'white', fontSize: responsiveSize(18), fontWeight: 'bold' },
     });
 }
