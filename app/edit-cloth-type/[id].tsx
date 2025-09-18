@@ -1,38 +1,50 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity, useWindowDimensions } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/config/firebase';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { db, auth } from '../../config/firebase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { logActivity } from '../utils/logActivity';
 
 const EditClothTypeScreen = () => {
     const { id } = useLocalSearchParams();
     const [name, setName] = useState('');
     const [price, setPrice] = useState('');
+    const [originalName, setOriginalName] = useState('');
     const router = useRouter();
+    const user = auth.currentUser;
     const { width } = useWindowDimensions();
     const styles = getStyles(width);
 
-    useEffect(() => {
-        const fetchClothType = async () => {
-            try {
-                const docRef = doc(db, 'cloth-types', id as string);
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    const clothTypeData = docSnap.data();
-                    setName(clothTypeData.name);
-                    setPrice(clothTypeData.price.toString());
-                }
-            } catch (error) {
-                console.error("Error fetching cloth type: ", error);
+    const fetchClothType = useCallback(async () => {
+        if (!id) return;
+        try {
+            const docRef = doc(db, 'cloth-types', id as string);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                const clothTypeData = docSnap.data();
+                setName(clothTypeData.name);
+                setOriginalName(clothTypeData.name);
+                setPrice(clothTypeData.price.toString());
+            } else {
+                Alert.alert('Error', 'Cloth type not found.');
             }
-        };
-        fetchClothType();
+        } catch (error) {
+            console.error("Error fetching document: ", error);
+            Alert.alert('Error', 'Could not fetch cloth type data.');
+        }
     }, [id]);
 
+    useFocusEffect(fetchClothType);
+
     const handleUpdate = async () => {
-        if (!name || !price) {
-            Alert.alert('Error', 'Please fill in all fields.');
+        const priceValue = parseFloat(price);
+        if (!name || isNaN(priceValue) || priceValue <= 0) {
+            Alert.alert('Error', 'Please fill in all fields with valid data.');
+            return;
+        }
+        if (!user) {
+            Alert.alert('Error', 'You must be logged in to update a cloth type.');
             return;
         }
 
@@ -40,9 +52,9 @@ const EditClothTypeScreen = () => {
             const docRef = doc(db, 'cloth-types', id as string);
             await updateDoc(docRef, {
                 name: name,
-                price: parseFloat(price),
-                lastModified: serverTimestamp(),
+                price: priceValue,
             });
+            await logActivity('cloth_type_updated', user.email, id as string, { name, price: priceValue });
             Alert.alert('Success', 'Cloth type updated successfully.');
             router.replace('/(tabs)/cloth-types');
         } catch (error) {
@@ -51,6 +63,38 @@ const EditClothTypeScreen = () => {
         }
     };
 
+    const handleDelete = async () => {
+        if (!user) {
+            Alert.alert('Error', 'You must be logged in to delete a cloth type.');
+            return;
+        }
+
+        Alert.alert(
+            "Delete Cloth Type",
+            `Are you sure you want to delete ${originalName}? This action cannot be undone.`,
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            const docRef = doc(db, 'cloth-types', id as string);
+                            await deleteDoc(docRef);
+                            await logActivity('cloth_type_deleted', user.email, id as string, { name: originalName });
+                            Alert.alert('Success', 'Cloth type deleted successfully.');
+                            router.replace('/(tabs)/cloth-types');
+                        } catch (error) {
+                            console.error("Error deleting document: ", error);
+                            Alert.alert('Error', 'Could not delete cloth type.');
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+
     return (
         <View style={styles.container}>
             <View style={styles.header}>
@@ -58,10 +102,12 @@ const EditClothTypeScreen = () => {
                     <MaterialCommunityIcons name="arrow-left" size={styles.headerTitle.fontSize} color="black" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Edit Cloth Type</Text>
-                <View style={{width: styles.headerTitle.fontSize}}/>
+                <TouchableOpacity onPress={handleDelete}>
+                    <MaterialCommunityIcons name="delete-outline" size={styles.headerTitle.fontSize} color="red" />
+                </TouchableOpacity>
             </View>
             <View style={styles.form}>
-                <Text style={styles.label}>Cloth Type Name</Text>
+                <Text style={styles.label}>Cloth Name</Text>
                 <TextInput
                     style={styles.input}
                     placeholder="e.g., Shirt, Pant, Saree"
@@ -69,10 +115,10 @@ const EditClothTypeScreen = () => {
                     value={name}
                     onChangeText={setName}
                 />
-                <Text style={styles.label}>Price (₹)</Text>
+                <Text style={styles.label}>Price</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder="Enter price per item (in ₹)"
+                    placeholder="Enter price per item"
                     placeholderTextColor="#888"
                     value={price}
                     onChangeText={setPrice}

@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '@/config/firebase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { logActivity } from '../utils/logActivity';
 
 const NewCustomerScreen = () => {
     const [name, setName] = useState('');
@@ -25,13 +26,14 @@ const NewCustomerScreen = () => {
         }
 
         try {
-            await addDoc(collection(db, 'customers'), {
+            const docRef = await addDoc(collection(db, 'customers'), {
                 name: name,
                 address: address,
                 phone: phone,
                 userEmail: user.email,
-                lastModified: serverTimestamp(),
+                createdAt: serverTimestamp(),
             });
+            await logActivity('customer_created', user.email, docRef.id, { name });
             Alert.alert('Success', 'Customer added successfully.');
             router.replace('/(tabs)/customers');
         } catch (error) {
@@ -53,7 +55,7 @@ const NewCustomerScreen = () => {
                 <Text style={styles.label}>Name</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder="Enter customer's full name"
+                    placeholder="Enter customer\'s full name"
                     placeholderTextColor="#888"
                     value={name}
                     onChangeText={setName}
@@ -61,7 +63,7 @@ const NewCustomerScreen = () => {
                 <Text style={styles.label}>Address</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder="Enter customer's address"
+                    placeholder="Enter customer\'s address"
                     placeholderTextColor="#888"
                     value={address}
                     onChangeText={setAddress}
@@ -69,7 +71,7 @@ const NewCustomerScreen = () => {
                 <Text style={styles.label}>Phone</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder="Enter customer's phone number"
+                    placeholder="Enter customer\'s phone number"
                     placeholderTextColor="#888"
                     value={phone}
                     onChangeText={setPhone}

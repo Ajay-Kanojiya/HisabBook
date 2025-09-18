@@ -38,21 +38,19 @@ const HomeScreen = () => {
 
             setStats({ totalCustomers, totalPaid, totalPending });
 
-            // Fetch Recent Activity
-            const recentCustomersQuery = query(collection(db, 'customers'), where("userEmail", "==", user.email), orderBy('createdAt', 'desc'), limit(3));
-            const recentOrdersQuery = query(collection(db, 'orders'), where("userEmail", "==", user.email), orderBy('createdAt', 'desc'), limit(3));
+            // Fetch Recent Activity from 'activities' collection
+            const activitiesQuery = query(collection(db, 'activities'), where("userEmail", "==", user.email), orderBy('createdAt', 'desc'), limit(10));
+            const activitiesSnapshot = await getDocs(activitiesQuery);
+            const activities = activitiesSnapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    ...data,
+                    id: doc.id,
+                    date: data.createdAt?.toDate() // handle case where createdAt is null
+                };
+            }).filter(activity => activity.date); // filter out activities without a date
             
-            const [customersActivity, ordersActivity] = await Promise.all([
-                getDocs(recentCustomersQuery),
-                getDocs(recentOrdersQuery)
-            ]);
-
-            const combinedActivity = [];
-            customersActivity.forEach(doc => combinedActivity.push({ type: 'customer', ...doc.data(), id: doc.id, date: doc.data().createdAt.toDate() }));
-            ordersActivity.forEach(doc => combinedActivity.push({ type: 'order', ...doc.data(), id: doc.id, date: doc.data().createdAt.toDate() }));
-            
-            combinedActivity.sort((a, b) => b.date - a.date);
-            setRecentActivity(combinedActivity.slice(0, 5));
+            setRecentActivity(activities);
 
         } catch (error) {
             console.error("Error fetching data for home screen: ", error);
@@ -68,31 +66,87 @@ const HomeScreen = () => {
     );
 
     const renderActivityItem = (item) => {
-        if (item.type === 'customer') {
-            return (
-                <View style={styles.activityItem} key={item.id}>
-                    <MaterialCommunityIcons name="account-plus-outline" size={24} color="#007bff" />
-                    <View style={styles.activityTextContainer}>
-                        <Text style={styles.activityTitle}>New Customer Added</Text>
-                        <Text style={styles.activitySubtitle}>{item.name}</Text>
-                    </View>
-                    <Text style={styles.activityTime}>{item.date.toLocaleDateString()}</Text>
-                </View>
-            );
+        if (!item || !item.type) {
+            return null;
         }
-        if (item.type === 'order') {
-            return (
-                <View style={styles.activityItem} key={item.id}>
-                    <MaterialCommunityIcons name="cart-plus" size={24} color="#28a745" />
-                    <View style={styles.activityTextContainer}>
-                        <Text style={styles.activityTitle}>New Order Created</Text>
-                        <Text style={styles.activitySubtitle}>Order #{item.id.substring(0, 6)}</Text>
-                    </View>
-                    <Text style={styles.activityAmount}>₹{item.total.toFixed(2)}</Text>
-                </View>
-            );
+        
+        // Default values
+        let icon = "alert-circle-outline";
+        let iconColor = "#868e96";
+        let title = "Unknown Activity";
+        let subtitle = `Activity ID: ${item.id.substring(0,6)}`;
+        let time = item.date ? item.date.toLocaleDateString() : "";
+        let amount = "";
+
+        switch (item.type) {
+            case 'customer_created':
+                icon = "account-plus-outline";
+                iconColor = "#007bff";
+                title = "New Customer Added";
+                subtitle = item.details?.name || "N/A";
+                break;
+            case 'customer_updated':
+                icon = "account-edit-outline";
+                iconColor = "#fd7e14";
+                title = "Customer Updated";
+                subtitle = item.details?.name || "N/A";
+                break;
+            case 'customer_deleted':
+                icon = "account-remove-outline";
+                iconColor = "#dc3545";
+                title = "Customer Removed";
+                subtitle = item.details?.name || "N/A";
+                break;
+            case 'order_created':
+                icon = "cart-plus";
+                iconColor = "#28a745";
+                title = "New Order Created";
+                subtitle = `Order #${item.docId.substring(0, 6)}`;
+                amount = item.details?.total ? `₹${item.details.total.toFixed(2)}` : "";
+                break;
+            case 'order_updated':
+                icon = "cart-outline";
+                iconColor = "#17a2b8";
+                title = "Order Updated";
+                subtitle = `Order #${item.docId.substring(0, 6)}`;
+                amount = item.details?.total ? `₹${item.details.total.toFixed(2)}` : "";
+                break;
+            case 'order_deleted':
+                icon = "cart-remove";
+                iconColor = "#dc3545";
+                title = "Order Deleted";
+                subtitle = `Order #${item.docId.substring(0, 6)}`;
+                break;
+            case 'cloth_type_created':
+                icon = "tag-plus-outline";
+                iconColor = "#6610f2";
+                title = "New Cloth Type Added";
+                subtitle = item.details?.name || "N/A";
+                break;
+            case 'cloth_type_updated':
+                icon = "tag-outline";
+                iconColor = "#ffc107";
+                title = "Cloth Type Updated";
+                subtitle = item.details?.name || "N/A";
+                break;
+            case 'cloth_type_deleted':
+                icon = "tag-remove-outline";
+                iconColor = "#dc3545";
+                title = "Cloth Type Removed";
+                subtitle = item.details?.name || "N/A";
+                break;
         }
-        return null;
+
+        return (
+            <View style={styles.activityItem} key={item.id}>
+                <MaterialCommunityIcons name={icon} size={24} color={iconColor} />
+                <View style={styles.activityTextContainer}>
+                    <Text style={styles.activityTitle}>{title}</Text>
+                    <Text style={styles.activitySubtitle}>{subtitle}</Text>
+                </View>
+                {amount ? <Text style={styles.activityAmount}>{amount}</Text> : <Text style={styles.activityTime}>{time}</Text>}
+            </View>
+        );
     };
 
     if (loading) {

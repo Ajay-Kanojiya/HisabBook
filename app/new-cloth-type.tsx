@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '@/config/firebase';
+import { db, auth } from '../config/firebase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { logActivity } from './utils/logActivity';
 
 const NewClothTypeScreen = () => {
     const [name, setName] = useState('');
@@ -14,8 +15,9 @@ const NewClothTypeScreen = () => {
     const styles = getStyles(width);
 
     const handleSave = async () => {
-        if (!name || !price) {
-            Alert.alert('Error', 'Please fill in all fields.');
+        const priceValue = parseFloat(price);
+        if (!name || isNaN(priceValue) || priceValue <= 0) {
+            Alert.alert('Error', 'Please fill in all fields with valid data.');
             return;
         }
         if (!user) {
@@ -24,12 +26,13 @@ const NewClothTypeScreen = () => {
         }
 
         try {
-            await addDoc(collection(db, 'cloth-types'), {
+            const docRef = await addDoc(collection(db, 'cloth-types'), {
                 name: name,
-                price: parseFloat(price),
+                price: priceValue,
                 userEmail: user.email,
-                lastModified: serverTimestamp(),
+                createdAt: serverTimestamp(),
             });
+            await logActivity('cloth_type_created', user.email, docRef.id, { name, price: priceValue });
             Alert.alert('Success', 'Cloth type added successfully.');
             router.replace('/(tabs)/cloth-types');
         } catch (error) {
@@ -48,7 +51,7 @@ const NewClothTypeScreen = () => {
                 <View style={{width: styles.headerTitle.fontSize}}/>
             </View>
             <View style={styles.form}>
-                <Text style={styles.label}>Cloth Type Name</Text>
+                <Text style={styles.label}>Cloth Name</Text>
                 <TextInput
                     style={styles.input}
                     placeholder="e.g., Shirt, Pant, Saree"
@@ -56,10 +59,10 @@ const NewClothTypeScreen = () => {
                     value={name}
                     onChangeText={setName}
                 />
-                <Text style={styles.label}>Price (₹)</Text>
+                <Text style={styles.label}>Price</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder="Enter price per item (in ₹)"
+                    placeholder="Enter price per item"
                     placeholderTextColor="#888"
                     value={price}
                     onChangeText={setPrice}
