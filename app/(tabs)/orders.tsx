@@ -99,22 +99,31 @@ const OrdersScreen = () => {
     }, [orders, search]);
 
     const renderItem = ({ item }) => (
-        <TouchableOpacity onPress={() => router.push(`/order/${item.id}`)}>
-            <View style={styles.itemContainer}>
-                <View style={styles.iconContainer}>
-                    <MaterialCommunityIcons name="receipt" size={styles.iconSize} color="#007bff" />
+        <View style={styles.itemContainer}>
+            <TouchableOpacity style={{flex: 1}} onPress={() => router.push(`/order/${item.id}`)}>
+                <View style={styles.itemContent}>
+                    <View style={styles.iconContainer}>
+                        <MaterialCommunityIcons name="receipt" size={styles.iconSize} color="#007bff" />
+                    </View>
+                    <View style={styles.itemInfo}>
+                        <Text style={styles.itemName}>Order #{item.id.substring(0, 5)}</Text>
+                        <Text style={styles.itemSubtitle}>{item.customerName} · {item.items.length} items</Text>
+                    </View>
+                    <View style={styles.itemRight}>
+                        <Text style={styles.itemTotal}>${item.total.toFixed(2)}</Text>
+                        <Text style={styles.itemDate}>{formatDate(item.lastModified)}</Text>
+                    </View>
                 </View>
-                <View style={styles.itemInfo}>
-                    <Text style={styles.itemName}>Order #{item.id.substring(0, 5)}</Text>
-                    <Text style={styles.itemSubtitle}>{item.customerName} · {item.items.length} items</Text>
-                </View>
-                <View style={styles.itemRight}>
-                    <Text style={styles.itemTotal}>${item.total.toFixed(2)}</Text>
-                    <Text style={styles.itemDate}>{formatDate(item.lastModified)}</Text>
-                </View>
-                <MaterialCommunityIcons name="chevron-right" size={styles.iconSize} color="#ced4da" />
+            </TouchableOpacity>
+            <View style={styles.actionsContainer}>
+                <TouchableOpacity onPress={() => router.push(`/edit-order/${item.id}`)} style={styles.actionButton}>
+                    <MaterialCommunityIcons name="pencil" size={styles.iconSize} color="#007bff" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.actionButton}>
+                    <MaterialCommunityIcons name="delete" size={styles.iconSize} color="#dc3545" />
+                </TouchableOpacity>
             </View>
-        </TouchableOpacity>
+        </View>
     );
 
     return (
@@ -133,16 +142,6 @@ const OrdersScreen = () => {
                         value={search}
                         onChangeText={setSearch}
                     />
-                </View>
-                <View style={styles.filterContainer}>
-                    <TouchableOpacity style={styles.filterButton}>
-                        <Text style={styles.filterText}>All Customers</Text>
-                        <MaterialCommunityIcons name="chevron-down" size={styles.searchIconSize} color="#888" />
-                    </TouchableOpacity>
-                     <TouchableOpacity style={styles.filterButton}>
-                        <Text style={styles.filterText}>Date Range</Text>
-                        <MaterialCommunityIcons name="chevron-down" size={styles.searchIconSize} color="#888" />
-                    </TouchableOpacity>
                 </View>
             </View>
 
@@ -207,23 +206,6 @@ const getStyles = (width) => {
             fontSize: responsiveSize(16),
             color: '#000',
         },
-        filterContainer: {
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-        },
-        filterButton: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: '#f0f0f0',
-            paddingHorizontal: responsiveSize(15),
-            paddingVertical: responsiveSize(10),
-            borderRadius: responsiveSize(8),
-        },
-        filterText: {
-            fontSize: responsiveSize(14),
-            marginRight: responsiveSize(5),
-            color: '#000',
-        },
         listContainer: {
             paddingHorizontal: responsiveSize(20),
         },
@@ -233,6 +215,12 @@ const getStyles = (width) => {
             paddingVertical: responsiveSize(15),
             borderBottomWidth: 1,
             borderBottomColor: '#f0f0f0',
+            justifyContent: 'space-between',
+        },
+        itemContent: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            flex: 1,
         },
         iconContainer: {
             width: responsiveSize(40),
@@ -269,6 +257,14 @@ const getStyles = (width) => {
             fontSize: responsiveSize(12),
             color: '#6c757d',
             marginTop: responsiveSize(2),
+        },
+        actionsContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+        },
+        actionButton: {
+            padding: responsiveSize(5),
+            marginLeft: responsiveSize(10),
         },
         addButton: {
             position: 'absolute',

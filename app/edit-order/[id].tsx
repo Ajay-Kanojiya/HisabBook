@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity, useWindowDimensions, ScrollView } from 'react-native';
-import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { doc, getDoc, updateDoc, serverTimestamp, collection, getDocs, query, where } from 'firebase/firestore';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { collection, addDoc, serverTimestamp, getDocs, query, where, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '@/config/firebase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
@@ -10,7 +10,7 @@ const EditOrderScreen = () => {
     const { id } = useLocalSearchParams();
     const [customer, setCustomer] = useState(null);
     const [customers, setCustomers] = useState([]);
-    const [items, setItems] = useState([]);
+    const [items, setItems] = useState([{ clothTypeId: null, quantity: '1', rate: 0 }]);
     const [clothTypes, setClothTypes] = useState([]);
     const [total, setTotal] = useState(0);
     const router = useRouter();
@@ -18,54 +18,47 @@ const EditOrderScreen = () => {
     const { width } = useWindowDimensions();
     const styles = getStyles(width);
 
-    const fetchOrderAndRelatedData = async () => {
-        if (!user || !id) {
-            console.log("EditOrderScreen: No user or order ID found.");
+    const fetchOrderAndInitialData = async () => {
+        if (!user) {
+            console.log("EditOrderScreen: No user found.");
             return;
         }
-        console.log(`EditOrderScreen: Fetching data for order ${id} and user ${user.email}`);
+
         try {
+            // Fetch customers and cloth types
             const customersQuery = query(collection(db, 'customers'), where("userEmail", "==", user.email));
-            const clothTypesQuery = query(collection(db, 'cloth-types'), where("userEmail", "==", user.email));
-
-            const [customersSnapshot, clothTypesSnapshot] = await Promise.all([
-                getDocs(customersQuery),
-                getDocs(clothTypesQuery)
-            ]);
-
-            console.log("EditOrderScreen: Fetched customers. Count:", customersSnapshot.docs.length);
+            const customersSnapshot = await getDocs(customersQuery);
             const customersList = customersSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
             setCustomers(customersList);
 
-            console.log("EditOrderScreen: Fetched cloth types. Count:", clothTypesSnapshot.docs.length);
+            const clothTypesQuery = query(collection(db, 'cloth-types'), where("userEmail", "==", user.email));
+            const clothTypesSnapshot = await getDocs(clothTypesQuery);
             const clothTypesList = clothTypesSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
             setClothTypes(clothTypesList);
 
-            const docRef = doc(db, 'orders', id as string);
-            const docSnap = await getDoc(docRef);
-
-            if (docSnap.exists()) {
-                console.log("EditOrderScreen: Found order:", docSnap.id);
-                const orderData = docSnap.data();
-                setCustomer(orderData.customerId);
-                setItems(orderData.items.map(item => ({
-                    ...item,
-                    quantity: item.quantity.toString(),
-                })));
-            } else {
-                Alert.alert("Error", "Order not found.");
-                router.back();
+            // Fetch the specific order to edit
+            if (id) {
+                const orderRef = doc(db, 'orders', id);
+                const orderSnap = await getDoc(orderRef);
+                if (orderSnap.exists()) {
+                    const orderData = orderSnap.data();
+                    setCustomer(orderData.customerId);
+                    setItems(orderData.items.map(item => ({...item, quantity: item.quantity.toString()})) || []);
+                } else {
+                    Alert.alert("Error", "Order not found.");
+                    router.back();
+                }
             }
         } catch (error) {
             console.error("Error fetching data: ", error);
-            Alert.alert("Data Fetch Error", `Could not fetch order data. Please check your connection and Firestore indexes. Details: ${error.message}`);
+            Alert.alert("Data Fetch Error", `Could not fetch initial data. Please check your connection and Firestore indexes. Details: ${error.message}`);
         }
     };
-    
+
     useFocusEffect(
         useCallback(() => {
-            fetchOrderAndRelatedData();
-        }, [id, user])
+            fetchOrderAndInitialData();
+        }, [user, id])
     );
 
     useEffect(() => {
@@ -100,17 +93,21 @@ const EditOrderScreen = () => {
         setItems(newItems);
     };
 
-    const handleUpdate = async () => {
+    const handleSave = async () => {
         if (!customer || items.some(item => !item.clothTypeId || !item.quantity)) {
             Alert.alert('Error', 'Please select a customer and fill in all item details.');
             return;
         }
+        if (!user) {
+            Alert.alert('Error', 'You must be logged in to update an order.');
+            return;
+        }
 
         try {
-            const docRef = doc(db, 'orders', id as string);
-            await updateDoc(docRef, {
+            const orderRef = doc(db, 'orders', id);
+            await updateDoc(orderRef, {
                 customerId: customer,
-                items: items.map(item => ({ ...item, quantity: parseInt(item.quantity, 10) })),
+                items: items.map(item => ({...item, quantity: parseInt(item.quantity, 10)})),
                 total: total,
                 lastModified: serverTimestamp(),
             });
@@ -139,6 +136,7 @@ const EditOrderScreen = () => {
                         selectedValue={customer}
                         onValueChange={(itemValue) => setCustomer(itemValue)}
                         style={styles.picker}
+                        enabled={false} // Disable customer editing for now
                     >
                         <Picker.Item label="Select a customer" value={null} />
                         {customers.map((c) => (
@@ -184,8 +182,8 @@ const EditOrderScreen = () => {
                     <Text style={styles.totalAmount}>${total.toFixed(2)}</Text>
                 </View>
 
-                <TouchableOpacity style={styles.saveButton} onPress={handleUpdate}>
-                    <Text style={s.saveButtonText}>Update Order</Text>
+                <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+                    <Text style={styles.saveButtonText}>Update Order</Text>
                 </TouchableOpacity>
             </View>
         </ScrollView>
