@@ -85,26 +85,32 @@ const BillDetailsScreen = () => {
 <html>
 <head>
     <style>
-        body { font-family: Arial, sans-serif; }
-        .invoice-box { max-width: 800px; margin: auto; padding: 30px; border: 1px solid #eee; }
-        .header { display: flex; justify-content: space-between; }
+        body { font-family: Arial, sans-serif; color: #333; }
+        .invoice-box { max-width: 800px; margin: auto; padding: 30px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0, 0, 0, 0.15); }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; }
         .company-details { text-align: left; }
-        .company-name { font-size: 24px; font-weight: bold; color: #E74C3C; }
+        .company-name { font-size: 28px; font-weight: bold; color: #E74C3C; margin-bottom: 5px; }
+        .slogan { margin-bottom: 10px; }
         .invoice-details { text-align: right; }
-        .invoice-title { font-size: 24px; font-weight: bold; color: #E74C3C; }
-        .customer-details { margin-top: 20px; margin-bottom: 20px; }
-        .item-table { width: 100%; border-collapse: collapse; }
-        .item-table th, .item-table td { border: 1px solid #ddd; padding: 8px; }
+        .invoice-title { font-size: 28px; font-weight: bold; color: #E74C3C; margin-bottom: 10px;}
+        .customer-info { margin-top: 30px; }
+        .info-line { display: flex; margin-bottom: 10px; }
+        .info-label { font-weight: bold; }
+        .info-value { border-bottom: 1px dotted #aaa; flex-grow: 1; margin-left: 10px; }
+        .item-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .item-table th, .item-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         .item-table th { background-color: #f2f2f2; }
-        .total { text-align: right; margin-top: 20px; }
+        .item-table td { text-align: right; }
+        .item-table td:nth-child(2) { text-align: left; }
+        .footer { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; border-top: 1px solid #ddd; padding-top: 10px;}
     </style>
 </head>
 <body>
     <div class="invoice-box">
         <div class="header">
             <div class="company-details">
-                <div class="company-name">Alundry</div>
-                <div>Your Slogan</div>
+                <div class="company-name">Company Name</div>
+                <div class="slogan">Your Slogan</div>
                 <div>Address Line 1, Address Line 2, Address Line 3</div>
                 <div>Phone Number, Mobile Number</div>
                 <div>yourname@email.com</div>
@@ -112,14 +118,23 @@ const BillDetailsScreen = () => {
             </div>
             <div class="invoice-details">
                 <div class="invoice-title">INVOICE</div>
-                <div>Invoice No. : #${bill.id.substring(0, 5)}</div>
-                <div>Invoice Date : ${bill.date.toLocaleDateString()}</div>
+                <div><strong>Invoice No. :</strong> #${bill.id.substring(0, 5)}</div>
+                <div><strong>Invoice Date :</strong> ${bill.date.toLocaleDateString()}</div>
             </div>
         </div>
-        <div class="customer-details">
-            <div>Name: ${customer.name}</div>
-            <div>Address: ${customer.address || 'N/A'}</div>
-            <div>Phone Number: ${customer.phone || 'N/A'}</div>
+        <div class="customer-info">
+            <div class="info-line">
+                <span class="info-label">Name:</span>
+                <span class="info-value">${customer.name}</span>
+            </div>
+            <div class="info-line">
+                <span class="info-label">Address:</span>
+                <span class="info-value">${customer.address || 'N/A'}</span>
+            </div>
+            <div class="info-line">
+                <span class="info-label">Phone Number:</span>
+                <span class="info-value">${customer.phone || 'N/A'}</span>
+            </div>
         </div>
         <table class="item-table">
             <thead>
@@ -135,11 +150,11 @@ const BillDetailsScreen = () => {
                 ${itemsHtml}
             </tbody>
         </table>
-        <div class="total">
-            <strong>Total:</strong> ${(bill.total || 0).toFixed(2)}
-        </div>
-        <div>
-            <strong>Rupees in words:</strong>
+        <div class="footer">
+            <div><strong>Rupees in words:</strong></div>
+            <div style="text-align: right;">
+                <strong>Total:</strong> ${(bill.total || 0).toFixed(2)}
+            </div>
         </div>
     </div>
 </body>
@@ -166,55 +181,64 @@ const BillDetailsScreen = () => {
         <View style={{flex: 1}}>
             <ScrollView style={styles.container}>
                 <View style={styles.invoiceBox}>
-                    {/* Header */}
                     <View style={styles.header}>
                         <View style={styles.companyDetails}>
-                            <Text style={styles.companyName}>Alundry</Text>
+                            <Text style={styles.companyName}>Company Name</Text>
                             <Text style={styles.slogan}>Your Slogan</Text>
-                            <Text style={styles.address}>Address Line 1, Address Line 2, Address Line 3</Text>
-                            <Text style={styles.contact}>Phone Number, Mobile Number</Text>
-                            <Text style={styles.contact}>yourname@email.com</Text>
-                            <Text style={styles.contact}>www.companyname.com</Text>
+                            <Text>Address Line 1, Address Line 2, Address Line 3</Text>
+                            <Text>Phone Number, Mobile Number</Text>
+                            <Text>yourname@email.com</Text>
+                            <Text>www.companyname.com</Text>
                         </View>
                         <View style={styles.invoiceDetails}>
                             <Text style={styles.invoiceTitle}>INVOICE</Text>
-                            <Text style={styles.invoiceInfo}>Invoice No. : #{bill.id.substring(0, 5)}</Text>
-                            <Text style={styles.invoiceInfo}>Invoice Date : {bill.date.toLocaleDateString()}</Text>
+                            <Text>Invoice No. : #{bill.id.substring(0, 5)}</Text>
+                            <Text>Invoice Date : {bill.date.toLocaleDateString()}</Text>
                         </View>
                     </View>
 
-                    {/* Customer Details */}
-                    <View style={styles.customerDetails}>
-                        <Text style={styles.detailText}>Name: {customer?.name}</Text>
-                        <Text style={styles.detailText}>Address: {customer?.address}</Text>
-                        <Text style={styles.detailText}>Phone Number: {customer?.phone}</Text>
+                    <View style={styles.customerInfo}>
+                        <View style={styles.infoLine}>
+                            <Text style={styles.infoLabel}>Name:</Text>
+                            <View style={styles.infoValue}><Text>{customer?.name}</Text></View>
+                        </View>
+                        <View style={styles.infoLine}>
+                            <Text style={styles.infoLabel}>Address:</Text>
+                            <View style={styles.infoValue}><Text>{customer?.address}</Text></View>
+                        </View>
+                        <View style={styles.infoLine}>
+                            <Text style={styles.infoLabel}>Phone Number:</Text>
+                            <View style={styles.infoValue}><Text>{customer?.phone}</Text></View>
+                        </View>
                     </View>
 
-
-                    {/* Items Table */}
                     <View style={styles.itemTable}>
                         <View style={styles.tableHeader}>
-                            <Text style={[styles.headerText, {flex: 0.5}]}>Sl.No.</Text>
-                            <Text style={[styles.headerText, {flex: 2}]}>Description</Text>
-                            <Text style={[styles.headerText, {flex: 0.5}]}>Qty.</Text>
-                            <Text style={[styles.headerText, {flex: 1}]}>Rate</Text>
-                            <Text style={[styles.headerText, {flex: 1}]}>Amount</Text>
+                            <Text style={[styles.headerText, {width: 50}]}>Sl.No.</Text>
+                            <Text style={[styles.headerText, {flex: 1}]}>Description</Text>
+                            <Text style={[styles.headerText, {width: 40}]}>Qty.</Text>
+                            <Text style={[styles.headerText, {width: 60}]}>Rate</Text>
+                            <Text style={[styles.headerText, {width: 80, textAlign: 'right'}]}>Amount</Text>
                         </View>
                         {order?.items.map((item, index) => (
                             <View key={index} style={styles.tableRow}>
-                                <Text style={[styles.rowText, {flex: 0.5}]}>{index + 1}</Text>
-                                <Text style={[styles.rowText, {flex: 2}]}>{item.clothTypeName || 'N/A'}</Text>
-                                <Text style={[styles.rowText, {flex: 0.5}]}>{item.quantity || 0}</Text>
-                                <Text style={[styles.rowText, {flex: 1}]}>{(item.price || 0).toFixed(2)}</Text>
-                                <Text style={[styles.rowText, {flex: 1}]}>{(item.totalPrice || 0).toFixed(2)}</Text>
+                                <Text style={{width: 50}}>{index + 1}</Text>
+                                <Text style={{flex: 1}}>{item.clothTypeName || 'N/A'}</Text>
+                                <Text style={{width: 40}}>{item.quantity || 0}</Text>
+                                <Text style={{width: 60}}>{(item.price || 0).toFixed(2)}</Text>
+                                <Text style={{width: 80, textAlign: 'right'}}>{(item.totalPrice || 0).toFixed(2)}</Text>
                             </View>
                         ))}
                     </View>
 
-                    {/* Total */}
-                    <View style={styles.totalContainer}>
-                        <Text style={styles.totalLabel}>Grand Total (₹)</Text>
-                        <Text style={styles.totalAmount}>{(bill.total || 0).toFixed(2)}</Text>
+                    <View style={styles.footer}>
+                        <Text style={{fontWeight: 'bold'}}>Rupees in words:</Text>
+                        <View style={{alignItems: 'flex-end'}}>
+                            <View style={{flexDirection: 'row'}}>
+                                <Text style={{fontWeight: 'bold'}}>Total: </Text>
+                                <Text>{(bill.total || 0).toFixed(2)}</Text>
+                            </View>
+                        </View>
                     </View>
                 </View>
             </ScrollView>
@@ -225,34 +249,27 @@ const BillDetailsScreen = () => {
     );
 };
 
-const getStyles = (width) => {
-    const scale = width / 414;
-    return StyleSheet.create({
-        centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-        container: { flex: 1, backgroundColor: '#ffffff' },
-        invoiceBox: { padding: 25 * scale, flex: 1 },
-        header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 * scale },
-        companyDetails: { flex: 1 },
-        companyName: { fontSize: 24 * scale, fontWeight: 'bold', color: '#E74C3C' },
-        slogan: { fontSize: 14 * scale, color: '#888', marginTop: 5 },
-        address: { fontSize: 14 * scale, color: '#888', marginTop: 5 },
-        contact: { fontSize: 14 * scale, color: '#888', marginTop: 5 },
-        invoiceDetails: { flex: 1, alignItems: 'flex-end' },
-        invoiceTitle: { fontSize: 24 * scale, fontWeight: 'bold', color: '#E74C3C' },
-        invoiceInfo: { fontSize: 14 * scale, color: '#555', marginTop: 5 },
-        customerDetails: { marginTop: 20 * scale, marginBottom: 20 * scale, borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 20 },
-        detailText: { fontSize: 15 * scale, color: '#333', marginBottom: 5 },
-        itemTable: { marginTop: 20 },
-        tableHeader: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#ddd', paddingBottom: 10, marginBottom: 5 },
-        headerText: { fontWeight: 'bold', color: '#495057' },
-        tableRow: { flexDirection: 'row', paddingVertical: 10 * scale, borderBottomWidth: 1, borderBottomColor: '#eee' },
-        rowText: { color: '#333', fontSize: 15 * scale, textAlign: 'right'},
-        totalContainer: { flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center', marginTop: 20 * scale, paddingTop: 10 * scale, borderTopWidth: 1, borderTopColor: '#eee' },
-        totalLabel: { fontSize: 18 * scale, fontWeight: 'bold', marginRight: 15 },
-        totalAmount: { fontSize: 22 * scale, fontWeight: 'bold', color: '#333' },
-        downloadButton: { backgroundColor: '#3c9ee5', padding: 20, alignItems: 'center', justifyContent: 'center', margin: 20 * scale, borderRadius: 10 },
-        downloadButtonText: { color: 'white', fontSize: 18 * scale, fontWeight: 'bold' },
-    });
-};
+const getStyles = (width) => StyleSheet.create({
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    container: { flex: 1, backgroundColor: '#ffffff' },
+    invoiceBox: { padding: 20, flex: 1 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
+    companyDetails: { flex: 1 },
+    companyName: { fontSize: 28, fontWeight: 'bold', color: '#E74C3C', marginBottom: 5 },
+    slogan: { marginBottom: 10, fontStyle: 'italic' },
+    invoiceDetails: { alignItems: 'flex-end' },
+    invoiceTitle: { fontSize: 28, fontWeight: 'bold', color: '#E74C3C', marginBottom: 10 },
+    customerInfo: { marginTop: 30, marginBottom: 20 },
+    infoLine: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+    infoLabel: { fontWeight: 'bold', marginRight: 5 },
+    infoValue: { flex: 1, borderBottomWidth: 1, borderBottomColor: '#ccc', paddingBottom: 2, borderStyle: 'dotted' },
+    itemTable: { borderTopWidth: 1, borderTopColor: '#000' },
+    tableHeader: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#000', paddingVertical: 5 },
+    headerText: { fontWeight: 'bold' },
+    tableRow: { flexDirection: 'row', paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: '#eee'},
+    footer: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#000', paddingTop: 10, marginTop: 10 },
+    downloadButton: { backgroundColor: '#3c9ee5', padding: 15, alignItems: 'center', justifyContent: 'center', margin: 20, borderRadius: 10 },
+    downloadButtonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+});
 
 export default BillDetailsScreen;
