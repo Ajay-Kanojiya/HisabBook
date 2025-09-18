@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '@/config/firebase';
+import { auth, db } from '@/config/firebase';
 import { printToFileAsync } from 'expo-print';
 import { shareAsync } from 'expo-sharing';
 
@@ -13,14 +13,39 @@ const BillDetailsScreen = () => {
     const [bill, setBill] = useState(null);
     const [customer, setCustomer] = useState(null);
     const [order, setOrder] = useState(null);
+    const [shop, setShop] = useState(null);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
     const { width } = useWindowDimensions();
     const styles = getStyles(width);
 
+    const numberToWords = (num) => {
+        const a = ['', 'one ', 'two ', 'three ', 'four ', 'five ', 'six ', 'seven ', 'eight ', 'nine ', 'ten ', 'eleven ', 'twelve ', 'thirteen ', 'fourteen ', 'fifteen ', 'sixteen ', 'seventeen ', 'eighteen ', 'nineteen '];
+        const b = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+        if ((num = num.toString()).length > 9) return 'overflow';
+        const n = ('000000000' + num).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
+        if (!n) return;
+        let str = '';
+        str += (n[1] != 0) ? (a[Number(n[1])] || b[n[1][0]] + ' ' + a[n[1][1]]) + 'crore ' : '';
+        str += (n[2] != 0) ? (a[Number(n[2])] || b[n[2][0]] + ' ' + a[n[2][1]]) + 'lakh ' : '';
+        str += (n[3] != 0) ? (a[Number(n[3])] || b[n[3][0]] + ' ' + a[n[3][1]]) + 'thousand ' : '';
+        str += (n[4] != 0) ? (a[Number(n[4])] || b[n[4][0]] + ' ' + a[n[4][1]]) + 'hundred ' : '';
+        str += (n[5] != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n[5])] || b[n[5][0]] + ' ' + a[n[5][1]]) + 'only ' : '';
+        return str;
+    }
+
     const fetchBillDetails = async () => {
         setLoading(true);
         try {
+            const user = auth.currentUser;
+            if (user) {
+                const shopRef = doc(db, 'shop', user.uid);
+                const shopSnap = await getDoc(shopRef);
+                if (shopSnap.exists()) {
+                    setShop(shopSnap.data());
+                }
+            }
+
             const billRef = doc(db, 'bills', id as string);
             const billSnap = await getDoc(billRef);
 
@@ -69,12 +94,12 @@ const BillDetailsScreen = () => {
     useFocusEffect(useCallback(() => { if (id) fetchBillDetails(); }, [id]));
 
     const handleDownloadPdf = async () => {
-        if (!bill || !customer || !order) return;
+        if (!bill || !customer || !order || !shop) return;
 
         const itemsHtml = order.items.map((item, index) => `
             <tr>
                 <td>${index + 1}</td>
-                <td>${item.clothTypeName || 'N/A'}</td>
+                <td style="text-align: left;">${item.clothTypeName || 'N/A'}</td>
                 <td>${item.quantity || 0}</td>
                 <td>${(item.price || 0).toFixed(2)}</td>
                 <td>${(item.totalPrice || 0).toFixed(2)}</td>
@@ -93,15 +118,13 @@ const BillDetailsScreen = () => {
         .slogan { margin-bottom: 10px; }
         .invoice-details { text-align: right; }
         .invoice-title { font-size: 28px; font-weight: bold; color: #E74C3C; margin-bottom: 10px;}
-        .customer-info { margin-top: 30px; }
+        .customer-info { margin-top: 30px; text-align: center; }
         .info-line { display: flex; margin-bottom: 10px; }
         .info-label { font-weight: bold; }
         .info-value { border-bottom: 1px dotted #aaa; flex-grow: 1; margin-left: 10px; }
         .item-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        .item-table th, .item-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        .item-table th, .item-table td { border: 1px solid #ddd; padding: 8px; text-align: center; }
         .item-table th { background-color: #f2f2f2; }
-        .item-table td { text-align: right; }
-        .item-table td:nth-child(2) { text-align: left; }
         .footer { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; border-top: 1px solid #ddd; padding-top: 10px;}
     </style>
 </head>
@@ -109,12 +132,11 @@ const BillDetailsScreen = () => {
     <div class="invoice-box">
         <div class="header">
             <div class="company-details">
-                <div class="company-name">Company Name</div>
+                <div class="company-name">${shop.shopName}</div>
                 <div class="slogan">Your Slogan</div>
-                <div>Address Line 1, Address Line 2, Address Line 3</div>
-                <div>Phone Number, Mobile Number</div>
-                <div>yourname@email.com</div>
-                <div>www.companyname.com</div>
+                <div>${shop.address}</div>
+                <div>${shop.mobile}</div>
+                <div>${shop.email}</div>
             </div>
             <div class="invoice-details">
                 <div class="invoice-title">INVOICE</div>
@@ -151,7 +173,7 @@ const BillDetailsScreen = () => {
             </tbody>
         </table>
         <div class="footer">
-            <div><strong>Rupees in words:</strong></div>
+            <div><strong>Rupees in words:</strong> ${numberToWords(bill.total)}</div>
             <div style="text-align: right;">
                 <strong>Total:</strong> ${(bill.total || 0).toFixed(2)}
             </div>
@@ -183,12 +205,11 @@ const BillDetailsScreen = () => {
                 <View style={styles.invoiceBox}>
                     <View style={styles.header}>
                         <View style={styles.companyDetails}>
-                            <Text style={styles.companyName}>Company Name</Text>
+                            <Text style={styles.companyName}>{shop?.shopName}</Text>
                             <Text style={styles.slogan}>Your Slogan</Text>
-                            <Text>Address Line 1, Address Line 2, Address Line 3</Text>
-                            <Text>Phone Number, Mobile Number</Text>
-                            <Text>yourname@email.com</Text>
-                            <Text>www.companyname.com</Text>
+                            <Text>{shop?.address}</Text>
+                            <Text>{shop?.mobile}</Text>
+                            <Text>{shop?.email}</Text>
                         </View>
                         <View style={styles.invoiceDetails}>
                             <Text style={styles.invoiceTitle}>INVOICE</Text>
@@ -214,25 +235,25 @@ const BillDetailsScreen = () => {
 
                     <View style={styles.itemTable}>
                         <View style={styles.tableHeader}>
-                            <Text style={[styles.headerText, {width: 50}]}>Sl.No.</Text>
-                            <Text style={[styles.headerText, {flex: 1}]}>Description</Text>
-                            <Text style={[styles.headerText, {width: 40}]}>Qty.</Text>
-                            <Text style={[styles.headerText, {width: 60}]}>Rate</Text>
-                            <Text style={[styles.headerText, {width: 80, textAlign: 'right'}]}>Amount</Text>
+                            <Text style={[styles.headerText, {width: '10%', textAlign: 'center'}]}>Sl.No.</Text>
+                            <Text style={[styles.headerText, {width: '40%', textAlign: 'left'}]}>Description</Text>
+                            <Text style={[styles.headerText, {width: '10%', textAlign: 'center'}]}>Qty.</Text>
+                            <Text style={[styles.headerText, {width: '20%', textAlign: 'center'}]}>Rate</Text>
+                            <Text style={[styles.headerText, {width: '20%', textAlign: 'center'}]}>Amount</Text>
                         </View>
                         {order?.items.map((item, index) => (
                             <View key={index} style={styles.tableRow}>
-                                <Text style={{width: 50}}>{index + 1}</Text>
-                                <Text style={{flex: 1}}>{item.clothTypeName || 'N/A'}</Text>
-                                <Text style={{width: 40}}>{item.quantity || 0}</Text>
-                                <Text style={{width: 60}}>{(item.price || 0).toFixed(2)}</Text>
-                                <Text style={{width: 80, textAlign: 'right'}}>{(item.totalPrice || 0).toFixed(2)}</Text>
+                                <Text style={{width: '10%', textAlign: 'center'}}>{index + 1}</Text>
+                                <Text style={{width: '40%', textAlign: 'left'}}>{item.clothTypeName || 'N/A'}</Text>
+                                <Text style={{width: '10%', textAlign: 'center'}}>{item.quantity || 0}</Text>
+                                <Text style={{width: '20%', textAlign: 'center'}}>{(item.price || 0).toFixed(2)}</Text>
+                                <Text style={{width: '20%', textAlign: 'center'}}>{(item.totalPrice || 0).toFixed(2)}</Text>
                             </View>
                         ))}
                     </View>
 
                     <View style={styles.footer}>
-                        <Text style={{fontWeight: 'bold'}}>Rupees in words:</Text>
+                        <Text style={{fontWeight: 'bold'}}>Rupees in words: {numberToWords(bill.total)}</Text>
                         <View style={{alignItems: 'flex-end'}}>
                             <View style={{flexDirection: 'row'}}>
                                 <Text style={{fontWeight: 'bold'}}>Total: </Text>
@@ -249,27 +270,33 @@ const BillDetailsScreen = () => {
     );
 };
 
-const getStyles = (width) => StyleSheet.create({
-    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    container: { flex: 1, backgroundColor: '#ffffff' },
-    invoiceBox: { padding: 20, flex: 1 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-    companyDetails: { flex: 1 },
-    companyName: { fontSize: 28, fontWeight: 'bold', color: '#E74C3C', marginBottom: 5 },
-    slogan: { marginBottom: 10, fontStyle: 'italic' },
-    invoiceDetails: { alignItems: 'flex-end' },
-    invoiceTitle: { fontSize: 28, fontWeight: 'bold', color: '#E74C3C', marginBottom: 10 },
-    customerInfo: { marginTop: 30, marginBottom: 20 },
-    infoLine: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-    infoLabel: { fontWeight: 'bold', marginRight: 5 },
-    infoValue: { flex: 1, borderBottomWidth: 1, borderBottomColor: '#ccc', paddingBottom: 2, borderStyle: 'dotted' },
-    itemTable: { borderTopWidth: 1, borderTopColor: '#000' },
-    tableHeader: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#000', paddingVertical: 5 },
-    headerText: { fontWeight: 'bold' },
-    tableRow: { flexDirection: 'row', paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: '#eee'},
-    footer: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#000', paddingTop: 10, marginTop: 10 },
-    downloadButton: { backgroundColor: '#3c9ee5', padding: 15, alignItems: 'center', justifyContent: 'center', margin: 20, borderRadius: 10 },
-    downloadButtonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
-});
+const getStyles = (width) => {
+    const baseWidth = 375;
+    const scale = width / baseWidth;
+    const responsiveSize = (size) => Math.round(size * scale);
+
+    return StyleSheet.create({
+        centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+        container: { flex: 1, backgroundColor: '#ffffff', paddingTop: responsiveSize(40) },
+        invoiceBox: { padding: responsiveSize(20), flex: 1 },
+        header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: responsiveSize(20) },
+        companyDetails: { flex: 1 },
+        companyName: { fontSize: responsiveSize(28), fontWeight: 'bold', color: '#E74C3C', marginBottom: responsiveSize(5) },
+        slogan: { marginBottom: responsiveSize(10), fontStyle: 'italic' },
+        invoiceDetails: { alignItems: 'flex-end' },
+        invoiceTitle: { fontSize: responsiveSize(28), fontWeight: 'bold', color: '#E74C3C', marginBottom: responsiveSize(10) },
+        customerInfo: { marginTop: responsiveSize(30), marginBottom: responsiveSize(20), alignItems: 'center' },
+        infoLine: { flexDirection: 'row', alignItems: 'center', marginBottom: responsiveSize(10) },
+        infoLabel: { fontWeight: 'bold', marginRight: responsiveSize(5) },
+        infoValue: { flex: 1, borderBottomWidth: 1, borderBottomColor: '#ccc', paddingBottom: responsiveSize(2), borderStyle: 'dotted' },
+        itemTable: { borderTopWidth: 1, borderTopColor: '#000' },
+        tableHeader: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#000', paddingVertical: responsiveSize(5) },
+        headerText: { fontWeight: 'bold' },
+        tableRow: { flexDirection: 'row', paddingVertical: responsiveSize(5), borderBottomWidth: 1, borderBottomColor: '#eee'},
+        footer: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#000', paddingTop: responsiveSize(10), marginTop: responsiveSize(10) },
+        downloadButton: { backgroundColor: '#007bff', padding: responsiveSize(15), alignItems: 'center', justifyContent: 'center', margin: responsiveSize(20), borderRadius: responsiveSize(10) },
+        downloadButtonText: { color: 'white', fontSize: responsiveSize(18), fontWeight: 'bold' },
+    });
+}
 
 export default BillDetailsScreen;

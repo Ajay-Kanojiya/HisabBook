@@ -13,6 +13,7 @@ const RegisterScreen = () => {
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [address, setAddress] = useState('');
   const [emailError, setEmailError] = useState('');
   const router = useRouter();
 
@@ -27,7 +28,7 @@ const RegisterScreen = () => {
   const handleRegister = () => {
     setEmailError('');
 
-    if (!ownerName || !shopName || !email || !mobile || !password || !confirmPassword) {
+    if (!ownerName || !shopName || !email || !mobile || !password || !confirmPassword || !address) {
         Alert.alert('Error', 'Please fill in all fields.');
         return;
     }
@@ -48,6 +49,7 @@ const RegisterScreen = () => {
           shopName: shopName,
           email: user.email,
           mobile: mobile,
+          address: address,
         });
         Alert.alert('Success', 'You have successfully registered.');
         router.replace('/(tabs)/home');
@@ -133,6 +135,17 @@ const RegisterScreen = () => {
             />
         </View>
         <Text style={styles.helperText}>Please include your country code (e.g., +91).</Text>
+
+        <Text style={styles.label}>Address</Text>
+        <View style={styles.inputWrapper}>
+            <TextInput
+                style={styles.input}
+                placeholder="123 Main St, Anytown, USA"
+                placeholderTextColor="#888"
+                value={address}
+                onChangeText={setAddress}
+            />
+        </View>
 
         <Text style={styles.label}>Password</Text>
          <View style={styles.inputWrapper}>
