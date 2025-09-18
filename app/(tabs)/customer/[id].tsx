@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Alert, Modal, TextInput, Button, KeyboardAvoidingView, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db } from '../../../config/firebase'; // Adjust this path
+import { db } from '@/config/firebase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const CustomerDetailScreen = () => {

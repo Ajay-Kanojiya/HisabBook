@@ -54,10 +54,11 @@ const LoginScreen = () => {
 
       <View style={styles.form}>
         <View style={[styles.inputContainer, emailError ? styles.inputError : {}]}>
-          <MaterialCommunityIcons name="email-outline" size={20} color="#6c757d" />
+          <MaterialCommunityIcons name="email-outline" size={20} color="#000" />
           <TextInput
             style={styles.input}
-            placeholder="shopowner@email.com"
+            placeholder="Enter email"
+            placeholderTextColor="#888"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -67,10 +68,11 @@ const LoginScreen = () => {
         {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
         <View style={[styles.inputContainer, passwordError ? styles.inputError : {}]}>
-          <MaterialCommunityIcons name="lock-outline" size={20} color="#6c757d" />
+          <MaterialCommunityIcons name="lock-outline" size={20} color="#000" />
           <TextInput
             style={styles.input}
-            placeholder=".........."
+            placeholder="Enter password"
+            placeholderTextColor="#888"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -117,10 +119,11 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 5,
+    color: '#000',
   },
   subtitle: {
     fontSize: 16,
-    color: '#6c757d',
+    color: '#000',
   },
   form: {
     backgroundColor: 'white',
@@ -148,7 +151,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 45,
     marginLeft: 10,
-    color: '#333',
+    color: '#000',
   },
   errorText: {
     color: '#dc3545',
@@ -157,7 +160,7 @@ const styles = StyleSheet.create({
   },
   forgotPassword: {
     textAlign: 'right',
-    color: '#6c757d',
+    color: '#000',
     marginBottom: 20,
   },
   loginButton: {
@@ -177,10 +180,10 @@ const styles = StyleSheet.create({
     marginTop: 30,
   },
   footerText: {
-    color: '#6c757d',
+    color: '#000',
   },
   signUp: {
-    color: '#6c757d',
+    color: '#000',
     fontWeight: 'bold',
   },
 });

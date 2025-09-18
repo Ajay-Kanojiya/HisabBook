@@ -1,200 +1,222 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, Alert, Picker } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { doc, getDoc, updateDoc, deleteDoc, getDocFromCache } from 'firebase/firestore';
-import { db } from '../../config/firebase'; // Adjust path
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, Alert, TouchableOpacity, useWindowDimensions, ScrollView, ActivityIndicator } from 'react-native';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { doc, getDoc, deleteDoc } from 'firebase/firestore';
+import { db } from '@/config/firebase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-const OrderDetailScreen = () => {
+const OrderDetailsScreen = () => {
     const { id } = useLocalSearchParams();
-    const router = useRouter();
     const [order, setOrder] = useState(null);
-    const [customerName, setCustomerName] = useState('');
+    const [customer, setCustomer] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const router = useRouter();
+    const { width } = useWindowDimensions();
+    const styles = getStyles(width);
 
-    useEffect(() => {
-        if (!id) return;
-        const fetchOrder = async () => {
-            const orderDocRef = doc(db, 'orders', id as string);
-            const orderDocSnap = await getDoc(orderDocRef);
+    const fetchOrderDetails = async () => {
+        setLoading(true);
+        try {
+            const orderRef = doc(db, 'orders', id as string);
+            const orderSnap = await getDoc(orderRef);
 
-            if (orderDocSnap.exists()) {
-                const orderData = { ...orderDocSnap.data(), id: orderDocSnap.id };
-                setOrder(orderData);
+            if (orderSnap.exists()) {
+                const orderData = orderSnap.data();
+                setOrder({ ...orderData, id: orderSnap.id });
 
-                if (orderData.customer && orderData.customer.path) {
-                    const customerDocRef = orderData.customer;
-                    const customerDocSnap = await getDoc(customerDocRef);
-                    if (customerDocSnap.exists()) {
-                        setCustomerName(customerDocSnap.data().name);
+                if (orderData.customerId) {
+                    const customerRef = doc(db, "customers", orderData.customerId);
+                    const customerSnap = await getDoc(customerRef);
+                    if (customerSnap.exists()) {
+                        setCustomer(customerSnap.data());
                     }
                 }
             } else {
-                Alert.alert('Error', 'Order not found.');
+                Alert.alert("Error", "Order not found.");
                 router.back();
             }
-        };
-
-        fetchOrder();
-    }, [id]);
-
-    const handleStatusChange = async (newStatus) => {
-        const orderDocRef = doc(db, 'orders', id as string);
-        try {
-            await updateDoc(orderDocRef, { status: newStatus });
-            setOrder({ ...order, status: newStatus });
-            Alert.alert('Success', `Order status updated to ${newStatus}`);
         } catch (error) {
-            console.error('Error updating order status: ', error);
-            Alert.alert('Error', 'Could not update order status.');
+            console.error("Error fetching order details: ", error);
+            Alert.alert("Error", "Could not fetch order details.");
+        } finally {
+            setLoading(false);
         }
     };
+
+    useFocusEffect(
+        useCallback(() => {
+            if (id) {
+                fetchOrderDetails();
+            }
+        }, [id])
+    );
     
     const handleDelete = () => {
         Alert.alert(
             "Delete Order",
-            "Are you sure you want to delete this order?",
+            "Are you sure you want to delete this order? This action cannot be undone.",
             [
                 { text: "Cancel", style: "cancel" },
-                { 
-                    text: "OK", 
+                {
+                    text: "Delete",
+                    style: "destructive",
                     onPress: async () => {
-                         try {
-                            await deleteDoc(doc(db, 'orders', id as string));
-                            router.back();
+                        try {
+                            await deleteDoc(doc(db, "orders", id as string));
+                            Alert.alert("Success", "Order deleted successfully.");
+                            router.replace('/(tabs)/orders');
                         } catch (error) {
-                            console.error('Error deleting order: ', error);
-                            Alert.alert('Error', 'There was an error deleting the order.');
+                            console.error("Error deleting document: ", error);
+                            Alert.alert("Error", "Could not delete order.");
                         }
-                    }
-                }
+                    },
+                },
             ]
         );
     };
+    
+    if (loading) {
+        return <ActivityIndicator size="large" color="#007bff" style={{ flex: 1, justifyContent: 'center' }} />;
+    }
 
     if (!order) {
-        return <SafeAreaView style={styles.container}><Text>Loading...</Text></SafeAreaView>;
+        return (
+            <View style={styles.container}>
+                <Text>Order not found.</Text>
+            </View>
+        );
     }
 
     return (
-        <SafeAreaView style={styles.container}>
+        <ScrollView style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <MaterialCommunityIcons name="arrow-left" size={24} color="#007bff" />
+                <TouchableOpacity onPress={() => router.back()}>
+                    <MaterialCommunityIcons name="arrow-left" size={styles.headerIconSize} color="black" />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Order Details</Text>
-                 <TouchableOpacity onPress={handleDelete} style={styles.deleteButton}>
-                    <MaterialCommunityIcons name="delete" size={24} color="#dc3545" />
-                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Order #{order.id.substring(0, 5)}</Text>
+                <View style={styles.headerActions}>
+                    <TouchableOpacity onPress={() => router.push(`/edit-order/${id}`)} style={{marginRight: 15}}>
+                        <MaterialCommunityIcons name="pencil-outline" size={styles.headerIconSize} color="#007bff" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={handleDelete}>
+                        <MaterialCommunityIcons name="trash-can-outline" size={styles.headerIconSize} color="#dc3545" />
+                    </TouchableOpacity>
+                </View>
             </View>
-
+            
             <View style={styles.content}>
-                <View style={styles.detailSection}>
-                    <Text style={styles.sectionTitle}>Customer</Text>
-                    <Text style={styles.sectionContent}>{customerName}</Text>
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Customer Details</Text>
+                    <Text style={styles.detailText}><Text style={styles.detailLabel}>Name:</Text> {customer?.name}</Text>
+                    <Text style={styles.detailText}><Text style={styles.detailLabel}>Address:</Text> {customer?.address}</Text>
+                    <Text style={styles.detailText}><Text style={styles.detailLabel}>Phone:</Text> {customer?.phone}</Text>
                 </View>
 
-                <View style={styles.detailSection}>
-                    <Text style={styles.sectionTitle}>Status</Text>
-                    <Picker
-                        selectedValue={order.status}
-                        onValueChange={(itemValue) => handleStatusChange(itemValue)}
-                        style={styles.statusPicker}
-                    >
-                        <Picker.Item label="Pending" value="Pending" />
-                        <Picker.Item label="Paid" value="Paid" />
-                        <Picker.Item label="Unpaid" value="Unpaid" />
-                    </Picker>
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Order Summary</Text>
+                    {order.items.map((item, index) => (
+                        <View key={index} style={styles.itemRow}>
+                            <Text style={styles.itemName}>{item.quantity} x {item.clothTypeId}</Text>
+                            <Text style={styles.itemTotal}>${(item.quantity * item.rate).toFixed(2)}</Text>
+                        </View>
+                    ))}
                 </View>
 
-                <View style={styles.detailSection}>
-                    <Text style={styles.sectionTitle}>Items</Text>
-                    <FlatList
-                        data={order.items}
-                        keyExtractor={(_, index) => index.toString()}
-                        renderItem={({ item }) => (
-                            <View style={styles.itemRow}>
-                                <Text>{item.clothTypeId}</Text>{/* Replace with actual cloth type name */}
-                                <Text>x {item.quantity}</Text>
-                                <Text>${(item.rate * item.quantity).toFixed(2)}</Text>
-                            </View>
-                        )}
-                    />
-                </View>
-
-                <View style={[styles.detailSection, styles.totalSection]}>
-                    <Text style={styles.totalLabel}>Total</Text>
+                <View style={styles.totalContainer}>
+                    <Text style={styles.totalLabel}>Total Amount</Text>
                     <Text style={styles.totalAmount}>${order.total.toFixed(2)}</Text>
                 </View>
             </View>
-        </SafeAreaView>
+        </ScrollView>
     );
 };
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#f8f9fa',
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 20,
-        backgroundColor: 'white',
-        borderBottomWidth: 1,
-        borderBottomColor: '#dee2e6',
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-    },
-    backButton: {},
-    deleteButton: {},
-    content: {
-        padding: 20,
-    },
-    detailSection: {
-        marginBottom: 20,
-    },
-    sectionTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#495057',
-        marginBottom: 10,
-    },
-    sectionContent: {
-        fontSize: 16,
-    },
-    statusPicker: {
-        height: 50,
-        width: '100%',
-        backgroundColor: '#fff'
-    },
-    itemRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        paddingVertical: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: '#e9ecef',
-    },
-    totalSection: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginTop: 20,
-        paddingTop: 20,
-        borderTopWidth: 1,
-        borderTopColor: '#dee2e6',
-    },
-    totalLabel: {
-        fontSize: 18,
-        fontWeight: 'bold',
-    },
-    totalAmount: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        color: '#28a745',
-    },
-});
+const getStyles = (width) => {
+    const baseWidth = 375;
+    const scale = width / baseWidth;
+    const responsiveSize = (size) => Math.round(size * scale);
 
-export default OrderDetailScreen;
+    return StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: '#ffffff',
+        },
+        header: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingTop: responsiveSize(60),
+            paddingBottom: responsiveSize(20),
+            paddingHorizontal: responsiveSize(20),
+            backgroundColor: '#ffffff',
+            borderBottomWidth: 1,
+            borderBottomColor: '#f0f0f0',
+        },
+        headerTitle: {
+            fontSize: responsiveSize(20),
+            fontWeight: 'bold',
+            color: '#000',
+        },
+        headerActions: {
+            flexDirection: 'row',
+        },
+        content: {
+            padding: responsiveSize(20),
+        },
+        section: {
+            marginBottom: responsiveSize(25),
+        },
+        sectionTitle: {
+            fontSize: responsiveSize(18),
+            fontWeight: 'bold',
+            marginBottom: responsiveSize(15),
+            color: '#333',
+        },
+        detailText: {
+            fontSize: responsiveSize(16),
+            marginBottom: responsiveSize(8),
+            color: '#555',
+        },
+        detailLabel: {
+            fontWeight: 'bold',
+        },
+        itemRow: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            paddingVertical: responsiveSize(10),
+            borderBottomWidth: 1,
+            borderBottomColor: '#f0f0f0',
+        },
+        itemName: {
+            fontSize: responsiveSize(16),
+            color: '#333',
+        },
+        itemTotal: {
+            fontSize: responsiveSize(16),
+            fontWeight: '500',
+            color: '#333',
+        },
+        totalContainer: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: responsiveSize(20),
+            paddingTop: responsiveSize(20),
+            borderTopWidth: 2,
+            borderTopColor: '#000',
+        },
+        totalLabel: {
+            fontSize: responsiveSize(18),
+            fontWeight: 'bold',
+            color: '#000',
+        },
+        totalAmount: {
+            fontSize: responsiveSize(22),
+            fontWeight: 'bold',
+            color: '#007bff',
+        },
+        headerIconSize: responsiveSize(24),
+    });
+}
+
+export default OrderDetailsScreen;

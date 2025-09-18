@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../../config/firebase'; // Adjust this path
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '@/config/firebase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const RegisterScreen = () => {
-  const [name, setName] = useState('');
+  const [ownerName, setOwnerName] = useState('');
+  const [shopName, setShopName] = useState('');
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
@@ -14,38 +16,40 @@ const RegisterScreen = () => {
   const [emailError, setEmailError] = useState('');
   const router = useRouter();
 
-  const validateEmail = (email) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  };
+  const { width } = useWindowDimensions();
+  const styles = getStyles(width);
 
-  const getPasswordStrength = (password) => {
-    let strength = 0;
-    if (password.length >= 8) strength++;
-    if (/[A-Z]/.test(password)) strength++;
-    if (/[a-z]/.test(password)) strength++;
-    if (/[0-9]/.test(password)) strength++;
-    if (/[^A-Za-z0-9]/.test(password)) strength++;
-    return strength;
+  const validateEmail = (email) => {
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return regex.test(email);
   };
 
   const handleRegister = () => {
     setEmailError('');
+
+    if (!ownerName || !shopName || !email || !mobile || !password || !confirmPassword) {
+        Alert.alert('Error', 'Please fill in all fields.');
+        return;
+    }
     if (!validateEmail(email)) {
-      setEmailError('Please enter a valid email address.');
-      return;
+        setEmailError('Please enter a valid email address.');
+        return;
     }
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match.');
-      return;
-    }
-    if (getPasswordStrength(password) < 3) {
-        Alert.alert('Weak Password', 'Password is too weak. Please choose a stronger password.');
+        Alert.alert('Error', 'Passwords do not match.');
         return;
     }
 
     createUserWithEmailAndPassword(auth, email, password)
-      .then((userCredential) => {
-        // You can add user profile update logic here (e.g., storing name and mobile)
+      .then(async (userCredential) => {
+        const user = userCredential.user;
+        await setDoc(doc(db, 'shop', user.uid), {
+          ownerName: ownerName,
+          shopName: shopName,
+          email: user.email,
+          mobile: mobile,
+        });
+        Alert.alert('Success', 'You have successfully registered.');
         router.replace('/(tabs)/home');
       })
       .catch((error) => {
@@ -53,66 +57,267 @@ const RegisterScreen = () => {
       });
   };
 
-  const passwordStrength = getPasswordStrength(password);
+  const getPasswordStrength = () => {
+      if (password.length === 0) return 0;
+      if (password.length < 6) return 1; // Weak
+      if (password.length < 10) return 2; // Medium
+      return 3; // Strong
+  };
+  const strength = getPasswordStrength();
 
   return (
     <View style={styles.container}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#000" />
-        </TouchableOpacity>
-      <View style={styles.header}>
+        <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()}>
+                <MaterialCommunityIcons name="arrow-left" size={styles.headerTitle.fontSize} color="black" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Shop Owner Registration</Text>
+        </View>
+
+        <View style={styles.iconContainer}>
+            <MaterialCommunityIcons name="shopping-outline" size={styles.title.fontSize * 2} color="#007bff" />
+        </View>
+
         <Text style={styles.title}>Create your account</Text>
         <Text style={styles.subtitle}>Please fill in the details to register.</Text>
-      </View>
 
-      <TextInput style={styles.input} placeholder="Name" value={name} onChangeText={setName} />
-      <TextInput style={[styles.input, emailError ? styles.inputError : {}]} placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-      {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
-      <View style={styles.mobileInputContainer}>
-        <Text style={styles.countryCode}>+91</Text>
-        <TextInput style={styles.mobileInput} placeholder="Enter your mobile number" value={mobile} onChangeText={setMobile} keyboardType="phone-pad" />
-      </View>
-      <Text style={styles.inputHelper}>Please include your country code.</Text>
-      
-      <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry />
-      <View style={styles.strengthIndicatorContainer}>
-            <View style={[styles.strengthBar, { flex: passwordStrength / 5, backgroundColor: passwordStrength > 2 ? '#28a745' : '#ffc107' }]} />
-      </View>
-      <TextInput style={styles.input} placeholder="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
+        <Text style={styles.label}>Shop Name</Text>
+        <View style={styles.inputWrapper}>
+             <TextInput
+                style={styles.input}
+                placeholder="The Clean Hub"
+                placeholderTextColor="#888"
+                value={shopName}
+                onChangeText={setShopName}
+            />
+            {shopName.length > 0 && <MaterialCommunityIcons name="check-circle" size={styles.input.fontSize} color="#28a745" style={styles.validationIcon} />}
+        </View>
 
-      <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
-        <Text style={styles.registerButtonText}>Register</Text>
-      </TouchableOpacity>
+        <Text style={styles.label}>Owner Name</Text>
+        <View style={styles.inputWrapper}>
+            <TextInput
+                style={styles.input}
+                placeholder="John Doe"
+                placeholderTextColor="#888"
+                value={ownerName}
+                onChangeText={setOwnerName}
+            />
+        </View>
 
-      <View style={styles.footer}>
-        <Text>Already have an account? </Text>
-        <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
-          <Text style={styles.signIn}>Sign In</Text>
+        <Text style={styles.label}>Email</Text>
+        <View style={[styles.inputWrapper, emailError ? styles.inputError : {}]}>
+            <TextInput
+                style={styles.input}
+                placeholder="john.doe@notanemail"
+                placeholderTextColor="#888"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                onBlur={() => !validateEmail(email) && email.length > 0 ? setEmailError('Please enter a valid email address.') : setEmailError('')}
+            />
+             {emailError && <MaterialCommunityIcons name="alert-circle" size={styles.input.fontSize} color="#dc3545" style={styles.validationIcon} />}
+        </View>
+        {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+
+        <Text style={styles.label}>Mobile Number</Text>
+        <View style={styles.mobileInputContainer}>
+            <Text style={styles.countryCode}>+91</Text>
+            <TextInput
+                style={styles.mobileInput}
+                placeholder="Enter your mobile number"
+                placeholderTextColor="#888"
+                value={mobile}
+                onChangeText={setMobile}
+                keyboardType="phone-pad"
+            />
+        </View>
+        <Text style={styles.helperText}>Please include your country code (e.g., +91).</Text>
+
+        <Text style={styles.label}>Password</Text>
+         <View style={styles.inputWrapper}>
+            <TextInput
+                style={styles.input}
+                placeholder="••••••••"
+                placeholderTextColor="#888"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+            />
+        </View>
+        <View style={styles.strengthContainer}>
+            <View style={[styles.strengthBar, { width: `${(strength / 3) * 100}%`, backgroundColor: strength === 1 ? '#dc3545' : strength === 2 ? '#ffc107' : '#28a745' }]} />
+        </View>
+        <Text style={styles.strengthText}>{['', 'Weak', 'Medium', 'Strong'][strength]}</Text>
+
+
+        <Text style={styles.label}>Confirm Password</Text>
+        <View style={styles.inputWrapper}>
+            <TextInput
+                style={styles.input}
+                placeholder="••••••••"
+                placeholderTextColor="#888"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+            />
+        </View>
+
+        <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
+            <Text style={styles.registerButtonText}>Register</Text>
         </TouchableOpacity>
-      </View>
+
+        <View style={styles.footer}>
+            <Text style={styles.footerText}>Already have an account? </Text>
+            <TouchableOpacity onPress={() => router.replace('/(auth)/login')}>
+                <Text style={styles.signIn}>Sign In</Text>
+            </TouchableOpacity>
+        </View>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: '#fff' },
-  backButton: { position: 'absolute', top: 40, left: 20 },
-  header: { alignItems: 'center', marginBottom: 30 },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 5 },
-  subtitle: { fontSize: 16, color: '#6c757d' },
-  input: { borderWidth: 1, borderColor: '#ced4da', borderRadius: 5, padding: 12, marginBottom: 10, fontSize: 16, color: '#333' },
-  inputError: { borderColor: '#dc3545' },
-  errorText: { color: '#dc3545', marginBottom: 10 },
-  mobileInputContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#ced4da', borderRadius: 5, marginBottom: 5 },
-  countryCode: { padding: 12, color: '#495057', borderRightWidth: 1, borderRightColor: '#ced4da' },
-  mobileInput: { flex: 1, padding: 12, fontSize: 16, color: '#333' },
-  inputHelper: { color: '#6c757d', marginBottom: 10, fontSize: 12 },
-  strengthIndicatorContainer: { height: 5, backgroundColor: '#e9ecef', borderRadius: 2.5, marginBottom: 10, flexDirection: 'row' },
-  strengthBar: { height: 5, borderRadius: 2.5 },
-  registerButton: { backgroundColor: '#007bff', padding: 15, borderRadius: 5, alignItems: 'center', marginTop: 10 },
-  registerButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
-  footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 20 },
-  signIn: { color: '#007bff', fontWeight: 'bold' }
-});
+const getStyles = (width) => {
+    const baseWidth = 375;
+    const scale = width / baseWidth;
+
+    const responsiveSize = (size) => Math.round(size * scale);
+
+    return StyleSheet.create({
+        container: {
+            flex: 1,
+            padding: responsiveSize(20),
+            backgroundColor: 'white',
+        },
+        header: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: responsiveSize(10),
+        },
+        headerTitle: {
+            fontSize: responsiveSize(18),
+            fontWeight: 'bold',
+            marginLeft: responsiveSize(20),
+            color: '#000',
+        },
+        iconContainer: {
+            alignItems: 'center',
+            marginVertical: responsiveSize(10),
+        },
+        title: {
+            fontSize: responsiveSize(24),
+            fontWeight: 'bold',
+            textAlign: 'center',
+            color: '#000',
+        },
+        subtitle: {
+            textAlign: 'center',
+            color: '#6c757d',
+            marginBottom: responsiveSize(20),
+            fontSize: responsiveSize(14),
+        },
+        label: {
+            fontSize: responsiveSize(14),
+            color: '#495057',
+            marginBottom: responsiveSize(5),
+            fontWeight: '500',
+        },
+        inputWrapper: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            width: '100%',
+            borderColor: '#ced4da',
+            borderWidth: 1,
+            borderRadius: responsiveSize(8),
+            marginBottom: responsiveSize(5),
+            backgroundColor: '#fff',
+        },
+        input: {
+            flex: 1,
+            height: responsiveSize(45),
+            paddingHorizontal: responsiveSize(15),
+            fontSize: responsiveSize(16),
+            color: '#000',
+        },
+        inputError: {
+            borderColor: '#dc3545',
+        },
+        validationIcon: {
+            marginRight: responsiveSize(10),
+        },
+        errorText: {
+            color: '#dc3545',
+            fontSize: responsiveSize(12),
+            marginBottom: responsiveSize(10),
+        },
+        mobileInputContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            borderColor: '#ced4da',
+            borderWidth: 1,
+            borderRadius: responsiveSize(8),
+            backgroundColor: '#fff',
+        },
+        countryCode: {
+            paddingHorizontal: responsiveSize(15),
+            fontSize: responsiveSize(16),
+            color: '#495057',
+        },
+        mobileInput: {
+            flex: 1,
+            height: responsiveSize(45),
+            paddingHorizontal: responsiveSize(10),
+            fontSize: responsiveSize(16),
+            color: '#000',
+        },
+        helperText: {
+            fontSize: responsiveSize(12),
+            color: '#6c757d',
+            marginBottom: responsiveSize(10),
+        },
+        strengthContainer: {
+            height: responsiveSize(4),
+            backgroundColor: '#e9ecef',
+            borderRadius: responsiveSize(2),
+            marginBottom: responsiveSize(5),
+        },
+        strengthBar: {
+            height: '100%',
+            borderRadius: responsiveSize(2),
+        },
+        strengthText: {
+            textAlign: 'right',
+            color: '#6c757d',
+            fontSize: responsiveSize(12),
+            marginBottom: responsiveSize(10),
+        },
+        registerButton: {
+            backgroundColor: '#007bff',
+            paddingVertical: responsiveSize(15),
+            borderRadius: responsiveSize(8),
+            alignItems: 'center',
+            marginTop: responsiveSize(10),
+            marginBottom: responsiveSize(20),
+        },
+        registerButtonText: {
+            color: 'white',
+            fontSize: responsiveSize(16),
+            fontWeight: 'bold',
+        },
+        footer: {
+            flexDirection: 'row',
+            justifyContent: 'center',
+        },
+        footerText: {
+            color: '#000',
+            fontSize: responsiveSize(14),
+        },
+        signIn: {
+            color: '#007bff',
+            fontWeight: 'bold',
+            fontSize: responsiveSize(14),
+        },
+    });
+}
 
 export default RegisterScreen;

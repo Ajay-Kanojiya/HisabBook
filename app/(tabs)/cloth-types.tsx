@@ -1,52 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Alert, Modal, TextInput, Button, KeyboardAvoidingView, Platform } from 'react-native';
-import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput, useWindowDimensions } from 'react-native';
+import { collection, getDocs, query, where, deleteDoc, doc, orderBy } from 'firebase/firestore';
+import { db, auth } from '@/config/firebase';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const ClothTypesScreen = () => {
     const [clothTypes, setClothTypes] = useState([]);
-    const [modalVisible, setModalVisible] = useState(false);
-    const [isEditing, setIsEditing] = useState(false);
-    const [currentClothType, setCurrentClothType] = useState(null);
-    const [name, setName] = useState('');
-    const [rate, setRate] = useState('');
+    const [search, setSearch] = useState('');
+    const router = useRouter();
+    const user = auth.currentUser;
+    const { width } = useWindowDimensions();
+    const styles = getStyles(width);
 
-    const clothTypesCollectionRef = collection(db, 'clothTypes');
-
-    useEffect(() => {
-        const unsubscribe = onSnapshot(clothTypesCollectionRef, (snapshot) => {
-            const clothTypesData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-            setClothTypes(clothTypesData);
-        });
-        return () => unsubscribe();
-    }, []);
-
-    const handleAddOrUpdate = async () => {
-        if (name.trim() === '' || rate.trim() === '') {
-            Alert.alert('Validation Error', 'Please enter both name and rate.');
-            return;
-        }
-
-        const rateValue = parseFloat(rate);
-        if (isNaN(rateValue) || rateValue <= 0) {
-            Alert.alert('Validation Error', 'Please enter a valid rate.');
-            return;
-        }
-
+    const fetchClothTypes = async () => {
+        if (!user) return;
         try {
-            if (isEditing) {
-                const clothTypeDoc = doc(db, 'clothTypes', currentClothType.id);
-                await updateDoc(clothTypeDoc, { name, rate: rateValue });
-            } else {
-                await addDoc(clothTypesCollectionRef, { name, rate: rateValue });
-            }
-            resetForm();
+            const clothTypesCollection = collection(db, 'cloth-types');
+            const q = query(clothTypesCollection, where("userEmail", "==", user.email), orderBy("lastModified", "desc"));
+            const clothTypesSnapshot = await getDocs(q);
+            const clothTypesList = clothTypesSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+            setClothTypes(clothTypesList);
         } catch (error) {
-            console.error('Error saving cloth type: ', error);
-            Alert.alert('Error', 'There was an error saving the cloth type.');
+            console.error("Error fetching cloth types: ", error);
+            Alert.alert("Error", "Could not fetch cloth types.");
         }
     };
+
+    useFocusEffect(
+        useCallback(() => {
+            if (user) {
+                fetchClothTypes();
+            }
+        }, [user])
+    );
 
     const handleDelete = (id) => {
         Alert.alert(
@@ -54,211 +41,181 @@ const ClothTypesScreen = () => {
             "Are you sure you want to delete this cloth type?",
             [
                 { text: "Cancel", style: "cancel" },
-                { 
-                    text: "OK", 
+                {
+                    text: "Delete",
+                    style: "destructive",
                     onPress: async () => {
                         try {
-                            const clothTypeDoc = doc(db, 'clothTypes', id);
-                            await deleteDoc(clothTypeDoc);
+                            await deleteDoc(doc(db, "cloth-types", id));
+                            fetchClothTypes();
                         } catch (error) {
-                            console.error('Error deleting cloth type: ', error);
-                            Alert.alert('Error', 'There was an error deleting the cloth type.');
+                            console.error("Error deleting document: ", error);
+                            Alert.alert("Error", "Could not delete cloth type.");
                         }
-                    } 
-                }
+                    },
+                },
             ]
         );
     };
 
-    const openEditModal = (clothType) => {
-        setIsEditing(true);
-        setCurrentClothType(clothType);
-        setName(clothType.name);
-        setRate(clothType.rate.toString());
-        setModalVisible(true);
+    const getIconName = (clothName) => {
+        const name = clothName.toLowerCase();
+        if (name.includes('shirt')) return 'tshirt-crew';
+        if (name.includes('pant')) return 'human-male';
+        if (name.includes('saree')) return 'human-female';
+        if (name.includes('kurta')) return 'hanger';
+        if (name.includes('blouse')) return 'human-female';
+        return 'hanger';
     };
 
-    const resetForm = () => {
-        setIsEditing(false);
-        setCurrentClothType(null);
-        setName('');
-        setRate('');
-        setModalVisible(false);
-    };
+    const filteredClothTypes = clothTypes.filter(clothType =>
+        clothType.name.toLowerCase().includes(search.toLowerCase())
+    );
 
     const renderItem = ({ item }) => (
         <View style={styles.itemContainer}>
+            <View style={styles.iconContainer}>
+                <MaterialCommunityIcons name={getIconName(item.name)} size={styles.iconSize} color="#007bff" />
+            </View>
             <View style={styles.itemInfo}>
                 <Text style={styles.itemName}>{item.name}</Text>
-                <Text style={styles.itemRate}>${item.rate.toFixed(2)}</Text>
+                <Text style={styles.itemRate}>${parseFloat(item.rate || 0).toFixed(2)}</Text>
             </View>
             <View style={styles.itemActions}>
-                <TouchableOpacity onPress={() => openEditModal(item)}>
-                    <MaterialCommunityIcons name="pencil" size={24} color="#007bff" />
+                <TouchableOpacity onPress={() => router.push(`/edit-cloth-type/${item.id}`)}>
+                    <MaterialCommunityIcons name="pencil-outline" size={styles.iconSize} color="#6c757d" />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => handleDelete(item.id)} style={{ marginLeft: 15 }}>
-                    <MaterialCommunityIcons name="delete" size={24} color="#dc3545" />
+                    <MaterialCommunityIcons name="trash-can-outline" size={styles.iconSize} color="#dc3545" />
                 </TouchableOpacity>
             </View>
         </View>
     );
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Cloth Types & Rates</Text>
+                <Text style={styles.headerTitle}>Cloth Types</Text>
+            </View>
+            <View style={styles.searchContainer}>
+                <MaterialCommunityIcons name="magnify" size={styles.searchIconSize} color="#888" style={styles.searchIcon} />
+                <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search cloth types"
+                    placeholderTextColor="#888"
+                    value={search}
+                    onChangeText={setSearch}
+                />
             </View>
             <FlatList
-                data={clothTypes}
+                data={filteredClothTypes}
                 renderItem={renderItem}
                 keyExtractor={item => item.id}
-                contentContainerStyle={styles.list}
+                contentContainerStyle={styles.listContainer}
             />
-            <TouchableOpacity style={styles.addButton} onPress={() => { setIsEditing(false); setModalVisible(true); }}>
-                <MaterialCommunityIcons name="plus" size={24} color="white" />
-                <Text style={styles.addButtonText}>Add New Cloth Type</Text>
+            <TouchableOpacity style={styles.addButton} onPress={() => router.push('/new-cloth-type')}>
+                <MaterialCommunityIcons name="plus" size={styles.addButtonIconSize} color="white" />
             </TouchableOpacity>
-
-            <Modal
-                animationType="slide"
-                transparent={true}
-                visible={modalVisible}
-                onRequestClose={resetForm}
-            >
-                <KeyboardAvoidingView 
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    style={styles.centeredView}
-                >
-                    <View style={styles.modalView}>
-                        <Text style={styles.modalTitle}>{isEditing ? 'Edit Cloth Type' : 'Add New Cloth Type'}</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Cloth Name (e.g., Shirt)"
-                            value={name}
-                            onChangeText={setName}
-                        />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Rate (e.g., 2.50)"
-                            value={rate}
-                            onChangeText={setRate}
-                            keyboardType="numeric"
-                        />
-                        <View style={styles.modalButtons}>
-                            <Button title="Cancel" onPress={resetForm} color="#6c757d" />
-                            <Button title={isEditing ? 'Update' : 'Add'} onPress={handleAddOrUpdate} />
-                        </View>
-                    </View>
-                </KeyboardAvoidingView>
-            </Modal>
-        </SafeAreaView>
+        </View>
     );
 };
 
+const getStyles = (width) => {
+    const baseWidth = 375;
+    const scale = width / baseWidth;
+    const responsiveSize = (size) => Math.round(size * scale);
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#f8f9fa',
-    },
-    header: {
-        backgroundColor: 'white',
-        padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#dee2e6',
-        alignItems: 'center',
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-    },
-    list: {
-        padding: 10,
-    },
-    itemContainer: {
-        backgroundColor: 'white',
-        padding: 15,
-        borderRadius: 10,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
-        shadowRadius: 1.41,
-        elevation: 2,
-    },
-    itemInfo: {
-        flex: 1,
-    },
-    itemName: {
-        fontSize: 18,
-        fontWeight: '500',
-    },
-    itemRate: {
-        fontSize: 16,
-        color: '#6c757d',
-    },
-    itemActions: {
-        flexDirection: 'row',
-    },
-    addButton: {
-        backgroundColor: '#007bff',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 15,
-        margin: 20,
-        borderRadius: 10,
-    },
-    addButtonText: {
-        color: 'white',
-        fontSize: 18,
-        marginLeft: 10,
-    },
-    centeredView: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.5)',
-    },
-    modalView: {
-        margin: 20,
-        backgroundColor: 'white',
-        borderRadius: 20,
-        padding: 35,
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 2,
+    return StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: '#ffffff',
         },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
-        elevation: 5,
-        width: '90%',
-    },
-    modalTitle: {
-        fontSize: 20,
-        marginBottom: 15,
-        fontWeight: 'bold'
-    },
-    input: {
-        width: '100%',
-        height: 50,
-        borderColor: 'gray',
-        borderWidth: 1,
-        borderRadius: 10,
-        marginBottom: 15,
-        paddingHorizontal: 15,
-        fontSize: 16,
-    },
-    modalButtons: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        width: '100%',
-    },
-});
+        header: {
+            paddingTop: responsiveSize(60),
+            paddingBottom: responsiveSize(20),
+            paddingHorizontal: responsiveSize(20),
+            backgroundColor: '#ffffff',
+            alignItems: 'center',
+        },
+        headerTitle: {
+            fontSize: responsiveSize(24),
+            fontWeight: 'bold',
+            color: '#000',
+        },
+        searchContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#f0f0f0',
+            borderRadius: responsiveSize(10),
+            marginHorizontal: responsiveSize(20),
+            paddingHorizontal: responsiveSize(15),
+            marginBottom: responsiveSize(10),
+        },
+        searchIcon: {
+            marginRight: responsiveSize(10),
+        },
+        searchInput: {
+            flex: 1,
+            height: responsiveSize(45),
+            fontSize: responsiveSize(16),
+            color: '#000',
+        },
+        listContainer: {
+            paddingHorizontal: responsiveSize(20),
+        },
+        itemContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: responsiveSize(15),
+            borderBottomWidth: 1,
+            borderBottomColor: '#f0f0f0',
+        },
+        iconContainer: {
+            width: responsiveSize(40),
+            height: responsiveSize(40),
+            borderRadius: responsiveSize(20),
+            backgroundColor: '#e7f5ff',
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginRight: responsiveSize(15),
+        },
+        itemInfo: {
+            flex: 1,
+        },
+        itemName: {
+            fontSize: responsiveSize(16),
+            fontWeight: '600',
+            color: '#000',
+        },
+        itemRate: {
+            fontSize: responsiveSize(14),
+            color: '#6c757d',
+            marginTop: responsiveSize(2),
+        },
+        itemActions: {
+            flexDirection: 'row',
+            alignItems: 'center',
+        },
+        addButton: {
+            position: 'absolute',
+            bottom: responsiveSize(30),
+            right: responsiveSize(30),
+            backgroundColor: '#007bff',
+            width: responsiveSize(56),
+            height: responsiveSize(56),
+            borderRadius: responsiveSize(28),
+            alignItems: 'center',
+            justifyContent: 'center',
+            elevation: 8,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 4,
+        },
+        iconSize: responsiveSize(22),
+        searchIconSize: responsiveSize(20),
+        addButtonIconSize: responsiveSize(28),
+    });
+};
 
 export default ClothTypesScreen;

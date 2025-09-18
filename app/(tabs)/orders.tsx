@@ -1,180 +1,295 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, TextInput } from 'react-native';
-import { collection, onSnapshot } from 'firebase/firestore';
-import { db } from '../../config/firebase'; // Adjust this path
+import React, { useState, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput, useWindowDimensions, ActivityIndicator } from 'react-native';
+import { collection, getDocs, query, where, deleteDoc, doc, orderBy, getDoc } from 'firebase/firestore';
+import { db, auth } from '@/config/firebase';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Link, useRouter } from 'expo-router';
 
 const OrdersScreen = () => {
     const [orders, setOrders] = useState([]);
-    const [filteredOrders, setFilteredOrders] = useState([]);
-    const [searchQuery, setSearchQuery] = useState('');
+    const [search, setSearch] = useState('');
+    const [loading, setLoading] = useState(true);
     const router = useRouter();
+    const user = auth.currentUser;
+    const { width } = useWindowDimensions();
+    const styles = getStyles(width);
 
-    useEffect(() => {
-        const ordersCollectionRef = collection(db, 'orders');
-        const unsubscribe = onSnapshot(ordersCollectionRef, async (snapshot) => {
-            const ordersData = await Promise.all(snapshot.docs.map(async (doc) => {
-                const order = { ...doc.data(), id: doc.id };
-                // Assuming customer is a reference, fetch customer data
-                if (order.customer && order.customer.path) {
-                    const customerSnap = await getDoc(order.customer);
+    const fetchOrders = async () => {
+        if (!user) return;
+        setLoading(true);
+        try {
+            const ordersCollection = collection(db, 'orders');
+            const q = query(ordersCollection, where("userEmail", "==", user.email), orderBy("lastModified", "desc"));
+            const ordersSnapshot = await getDocs(q);
+
+            const ordersList = await Promise.all(ordersSnapshot.docs.map(async (orderDoc) => {
+                const orderData = orderDoc.data();
+                let customerName = 'N/A';
+                if (orderData.customerId) {
+                    const customerRef = doc(db, "customers", orderData.customerId);
+                    const customerSnap = await getDoc(customerRef);
                     if (customerSnap.exists()) {
-                        order.customerName = customerSnap.data().name;
+                        customerName = customerSnap.data().name;
                     }
                 }
-                return order;
+                return {
+                    ...orderData,
+                    id: orderDoc.id,
+                    customerName,
+                };
             }));
-            setOrders(ordersData);
-            setFilteredOrders(ordersData);
-        });
-        return () => unsubscribe();
-    }, []);
+            setOrders(ordersList);
+        } catch (error) {
+            console.error("Error fetching orders: ", error);
+            Alert.alert("Error", "Could not fetch orders. Make sure you have created the necessary Firestore indexes.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    useEffect(() => {
-        const filtered = orders.filter(order =>
-            (order.customerName && order.customerName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-            order.id.toLowerCase().includes(searchQuery.toLowerCase())
+    useFocusEffect(
+        useCallback(() => {
+            if (user) {
+                fetchOrders();
+            }
+        }, [user])
+    );
+
+    const handleDelete = (id) => {
+        Alert.alert(
+            "Delete Order",
+            "Are you sure you want to delete this order?",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await deleteDoc(doc(db, "orders", id));
+                            fetchOrders();
+                        } catch (error) {
+                            console.error("Error deleting document: ", error);
+                            Alert.alert("Error", "Could not delete order.");
+                        }
+                    },
+                },
+            ]
         );
-        setFilteredOrders(filtered);
-    }, [searchQuery, orders]);
+    };
+    
+    const formatDate = (timestamp) => {
+        if (!timestamp) return 'N/A';
+        const date = timestamp.toDate();
+        const now = new Date();
+        const diff = Math.round((now - date) / (1000 * 60 * 60 * 24));
+
+        if (diff === 0) return 'Today';
+        if (diff === 1) return 'Yesterday';
+        if (diff <= 7) return `${diff} days ago`;
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+
+
+    const filteredOrders = useMemo(() => {
+        return orders.filter(order =>
+            order.customerName.toLowerCase().includes(search.toLowerCase()) ||
+            order.id.toLowerCase().includes(search.toLowerCase())
+        );
+    }, [orders, search]);
 
     const renderItem = ({ item }) => (
-        <Link href={`/order/${item.id}`} asChild>
-             <TouchableOpacity style={styles.itemContainer}>
+        <TouchableOpacity onPress={() => router.push(`/order/${item.id}`)}>
+            <View style={styles.itemContainer}>
+                <View style={styles.iconContainer}>
+                    <MaterialCommunityIcons name="receipt" size={styles.iconSize} color="#007bff" />
+                </View>
                 <View style={styles.itemInfo}>
-                    <Text style={styles.orderId}>Order #{item.id}</Text>
-                    <Text style={styles.customerName}>{item.customerName || 'N/A'}</Text>
-                    <Text style={styles.itemCount}>{item.items.length} items</Text>
+                    <Text style={styles.itemName}>Order #{item.id.substring(0, 5)}</Text>
+                    <Text style={styles.itemSubtitle}>{item.customerName} · {item.items.length} items</Text>
                 </View>
                 <View style={styles.itemRight}>
-                     <Text style={styles.orderTotal}>${item.total.toFixed(2)}</Text>
-                    <Text style={styles.orderDate}>{new Date(item.createdAt?.toDate()).toLocaleDateString()}</Text>
+                    <Text style={styles.itemTotal}>${item.total.toFixed(2)}</Text>
+                    <Text style={styles.itemDate}>{formatDate(item.lastModified)}</Text>
                 </View>
-            </TouchableOpacity>
-        </Link>
+                <MaterialCommunityIcons name="chevron-right" size={styles.iconSize} color="#ced4da" />
+            </View>
+        </TouchableOpacity>
     );
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Orders</Text>
             </View>
-            <View style={styles.searchContainer}>
-                 <MaterialCommunityIcons name="magnify" size={20} color="#6c757d" style={styles.searchIcon} />
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Search by customer or order #"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                />
+
+            <View style={styles.controlsContainer}>
+                 <View style={styles.searchContainer}>
+                    <MaterialCommunityIcons name="magnify" size={styles.searchIconSize} color="#888" style={styles.searchIcon} />
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Search by customer or #"
+                        placeholderTextColor="#888"
+                        value={search}
+                        onChangeText={setSearch}
+                    />
+                </View>
+                <View style={styles.filterContainer}>
+                    <TouchableOpacity style={styles.filterButton}>
+                        <Text style={styles.filterText}>All Customers</Text>
+                        <MaterialCommunityIcons name="chevron-down" size={styles.searchIconSize} color="#888" />
+                    </TouchableOpacity>
+                     <TouchableOpacity style={styles.filterButton}>
+                        <Text style={styles.filterText}>Date Range</Text>
+                        <MaterialCommunityIcons name="chevron-down" size={styles.searchIconSize} color="#888" />
+                    </TouchableOpacity>
+                </View>
             </View>
-            {/* Add filter dropdowns here */}
-            <FlatList
-                data={filteredOrders}
-                renderItem={renderItem}
-                keyExtractor={item => item.id}
-                contentContainerStyle={styles.list}
-            />
+
+            {loading ? (
+                <ActivityIndicator size="large" color="#007bff" style={{ marginTop: 20 }}/>
+            ) : (
+                <FlatList
+                    data={filteredOrders}
+                    renderItem={renderItem}
+                    keyExtractor={item => item.id}
+                    contentContainerStyle={styles.listContainer}
+                />
+            )}
+            
             <TouchableOpacity style={styles.addButton} onPress={() => router.push('/new-order')}>
-                <MaterialCommunityIcons name="plus" size={24} color="white" />
-                <Text style={styles.addButtonText}>New Order</Text>
+                <MaterialCommunityIcons name="plus" size={styles.addButtonIconSize} color="white" />
             </TouchableOpacity>
-        </SafeAreaView>
+        </View>
     );
 };
 
+const getStyles = (width) => {
+    const baseWidth = 375;
+    const scale = width / baseWidth;
+    const responsiveSize = (size) => Math.round(size * scale);
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#f8f9fa',
-    },
-    header: {
-        backgroundColor: 'white',
-        padding: 20,
-        alignItems: 'center',
-        borderBottomWidth: 1,
-        borderBottomColor: '#dee2e6',
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-    },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#e9ecef',
-        borderRadius: 20,
-        margin: 10,
-        paddingHorizontal: 10,
-    },
-    searchIcon: {
-        marginRight: 5,
-    },
-    searchInput: {
-        flex: 1,
-        height: 40,
-    },
-    list: {
-        paddingHorizontal: 10,
-    },
-    itemContainer: {
-        backgroundColor: 'white',
-        padding: 15,
-        borderRadius: 10,
-        marginBottom: 10,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
-        shadowRadius: 1.41,
-        elevation: 2,
-    },
-    itemInfo: {
-        // Styles for left side of the order item
-    },
-    orderId: {
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    customerName: {
-        fontSize: 16,
-        color: '#495057'
-    },
-    itemCount: {
-        fontSize: 14,
-        color: '#6c757d',
-    },
-    itemRight: {
-        alignItems: 'flex-end',
-    },
-    orderTotal: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#007bff'
-    },
-    orderDate: {
-        fontSize: 14,
-        color: '#6c757d',
-    },
-    addButton: {
-        backgroundColor: '#007bff',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 15,
-        marginHorizontal: 20,
-        borderRadius: 10,
-        marginBottom: 10,
-    },
-    addButtonText: {
-        color: 'white',
-        fontSize: 18,
-        marginLeft: 10,
-    },
-});
+    return StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: '#ffffff',
+        },
+        header: {
+            paddingTop: responsiveSize(60),
+            paddingBottom: responsiveSize(20),
+            paddingHorizontal: responsiveSize(20),
+            backgroundColor: '#ffffff',
+            alignItems: 'center',
+        },
+        headerTitle: {
+            fontSize: responsiveSize(24),
+            fontWeight: 'bold',
+            color: '#000',
+        },
+        controlsContainer: {
+            paddingHorizontal: responsiveSize(20),
+            paddingBottom: responsiveSize(10),
+        },
+        searchContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#f0f0f0',
+            borderRadius: responsiveSize(10),
+            paddingHorizontal: responsiveSize(15),
+            marginBottom: responsiveSize(10),
+        },
+        searchIcon: {
+            marginRight: responsiveSize(10),
+        },
+        searchInput: {
+            flex: 1,
+            height: responsiveSize(45),
+            fontSize: responsiveSize(16),
+            color: '#000',
+        },
+        filterContainer: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+        },
+        filterButton: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#f0f0f0',
+            paddingHorizontal: responsiveSize(15),
+            paddingVertical: responsiveSize(10),
+            borderRadius: responsiveSize(8),
+        },
+        filterText: {
+            fontSize: responsiveSize(14),
+            marginRight: responsiveSize(5),
+            color: '#000',
+        },
+        listContainer: {
+            paddingHorizontal: responsiveSize(20),
+        },
+        itemContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: responsiveSize(15),
+            borderBottomWidth: 1,
+            borderBottomColor: '#f0f0f0',
+        },
+        iconContainer: {
+            width: responsiveSize(40),
+            height: responsiveSize(40),
+            borderRadius: responsiveSize(20),
+            backgroundColor: '#e7f5ff',
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginRight: responsiveSize(15),
+        },
+        itemInfo: {
+            flex: 1,
+        },
+        itemName: {
+            fontSize: responsiveSize(16),
+            fontWeight: '600',
+            color: '#000',
+        },
+        itemSubtitle: {
+            fontSize: responsiveSize(14),
+            color: '#6c757d',
+            marginTop: responsiveSize(2),
+        },
+        itemRight: {
+            alignItems: 'flex-end',
+            marginRight: responsiveSize(10),
+        },
+        itemTotal: {
+            fontSize: responsiveSize(16),
+            fontWeight: 'bold',
+            color: '#000',
+        },
+        itemDate: {
+            fontSize: responsiveSize(12),
+            color: '#6c757d',
+            marginTop: responsiveSize(2),
+        },
+        addButton: {
+            position: 'absolute',
+            bottom: responsiveSize(30),
+            right: responsiveSize(30),
+            backgroundColor: '#007bff',
+            width: responsiveSize(60),
+            height: responsiveSize(60),
+            borderRadius: responsiveSize(30),
+            alignItems: 'center',
+            justifyContent: 'center',
+            elevation: 8,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 4,
+        },
+        iconSize: responsiveSize(22),
+        searchIconSize: responsiveSize(20),
+        addButtonIconSize: responsiveSize(30),
+    });
+};
 
 export default OrdersScreen;

@@ -1,268 +1,206 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, TextInput, Modal, Button, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db } from '../../config/firebase'; // Adjust this path if needed
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput, useWindowDimensions, Image } from 'react-native';
+import { collection, getDocs, query, where, deleteDoc, doc, orderBy } from 'firebase/firestore';
+import { db, auth } from '@/config/firebase';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Link } from 'expo-router';
 
 const CustomersScreen = () => {
     const [customers, setCustomers] = useState([]);
-    const [filteredCustomers, setFilteredCustomers] = useState([]);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [modalVisible, setModalVisible] = useState(false);
-    const [isEditing, setIsEditing] = useState(false);
-    const [currentCustomer, setCurrentCustomer] = useState(null);
-    const [name, setName] = useState('');
-    const [address, setAddress] = useState('');
-    const [phone, setPhone] = useState('');
+    const [search, setSearch] = useState('');
+    const router = useRouter();
+    const user = auth.currentUser;
+    const { width } = useWindowDimensions();
+    const styles = getStyles(width);
 
-    const customersCollectionRef = collection(db, 'customers');
-
-    useEffect(() => {
-        const unsubscribe = onSnapshot(customersCollectionRef, (snapshot) => {
-            const customersData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-            setCustomers(customersData);
-            setFilteredCustomers(customersData);
-        });
-        return () => unsubscribe();
-    }, []);
-
-    useEffect(() => {
-        const filtered = customers.filter(customer =>
-            customer.name.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-        setFilteredCustomers(filtered);
-    }, [searchQuery, customers]);
-
-    const handleAddOrUpdate = async () => {
-        if (name.trim() === '' || address.trim() === '' || phone.trim() === '') {
-            Alert.alert('Validation Error', 'Please fill in all fields.');
-            return;
-        }
-
+    const fetchCustomers = async () => {
+        if (!user) return;
         try {
-            if (isEditing) {
-                const customerDoc = doc(db, 'customers', currentCustomer.id);
-                await updateDoc(customerDoc, { name, address, phone });
-            } else {
-                await addDoc(customersCollectionRef, { name, address, phone });
-            }
-            resetForm();
+            const customersCollection = collection(db, 'customers');
+            const q = query(customersCollection, where("userEmail", "==", user.email), orderBy("lastModified", "desc"));
+            const customersSnapshot = await getDocs(q);
+            const customersList = customersSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+            setCustomers(customersList);
         } catch (error) {
-            console.error('Error saving customer: ', error);
-            Alert.alert('Error', 'There was an error saving the customer.');
+            console.error("Error fetching customers: ", error);
+            Alert.alert("Error", "Could not fetch customers.");
         }
     };
-    
-    const openEditModal = (customer) => {
-        setIsEditing(true);
-        setCurrentCustomer(customer);
-        setName(customer.name);
-        setAddress(customer.address);
-        setPhone(customer.phone);
-        setModalVisible(true);
+
+    useFocusEffect(
+        useCallback(() => {
+            if (user) {
+                fetchCustomers();
+            }
+        }, [user])
+    );
+
+    const handleDelete = (id) => {
+        Alert.alert(
+            "Delete Customer",
+            "Are you sure you want to delete this customer?",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await deleteDoc(doc(db, "customers", id));
+                            fetchCustomers();
+                        } catch (error) {
+                            console.error("Error deleting document: ", error);
+                            Alert.alert("Error", "Could not delete customer.");
+                        }
+                    },
+                },
+            ]
+        );
     };
 
-    const resetForm = () => {
-        setIsEditing(false);
-        setCurrentCustomer(null);
-        setName('');
-        setAddress('');
-        setPhone('');
-        setModalVisible(false);
-    };
+    const filteredCustomers = customers.filter(customer =>
+        customer.name.toLowerCase().includes(search.toLowerCase())
+    );
 
     const renderItem = ({ item }) => (
-        <Link href={`/(tabs)/customer/${item.id}`} asChild>
-            <TouchableOpacity style={styles.itemContainer}>
-                <View style={styles.itemInfo}>
-                    <Text style={styles.itemName}>{item.name}</Text>
-                    <Text style={styles.itemAddress}>{item.address}</Text>
-                </View>
-            </TouchableOpacity>
-        </Link>
+        <View style={styles.itemContainer}>
+            <Image source={{ uri: 'https://i.pravatar.cc/150?u=' + item.id }} style={styles.avatar} />
+            <View style={styles.itemInfo}>
+                <Text style={styles.itemName}>{item.name}</Text>
+                <Text style={styles.itemSubtitle}>{item.address}</Text>
+            </View>
+            <View style={styles.itemActions}>
+                <TouchableOpacity onPress={() => router.push(`/edit-customer/${item.id}`)}>
+                    <MaterialCommunityIcons name="pencil-outline" size={styles.iconSize} color="#6c757d" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleDelete(item.id)} style={{ marginLeft: 15 }}>
+                    <MaterialCommunityIcons name="trash-can-outline" size={styles.iconSize} color="#dc3545" />
+                </TouchableOpacity>
+            </View>
+        </View>
     );
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Customers</Text>
             </View>
             <View style={styles.searchContainer}>
-                <MaterialCommunityIcons name="magnify" size={20} color="#6c757d" style={styles.searchIcon} />
+                <MaterialCommunityIcons name="magnify" size={styles.searchIconSize} color="#888" style={styles.searchIcon} />
                 <TextInput
                     style={styles.searchInput}
                     placeholder="Search customers"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
+                    placeholderTextColor="#888"
+                    value={search}
+                    onChangeText={setSearch}
                 />
             </View>
             <FlatList
                 data={filteredCustomers}
                 renderItem={renderItem}
                 keyExtractor={item => item.id}
-                contentContainerStyle={styles.list}
+                contentContainerStyle={styles.listContainer}
             />
-            <TouchableOpacity style={styles.addButton} onPress={() => { setIsEditing(false); setModalVisible(true); }}>
-                <MaterialCommunityIcons name="plus" size={24} color="white" />
-                <Text style={styles.addButtonText}>Add New Customer</Text>
+            <TouchableOpacity style={styles.addButton} onPress={() => router.push('/new-customer')}>
+                <MaterialCommunityIcons name="plus" size={styles.addButtonIconSize} color="white" />
             </TouchableOpacity>
-
-             <Modal
-                animationType="slide"
-                transparent={true}
-                visible={modalVisible}
-                onRequestClose={resetForm}
-            >
-                <KeyboardAvoidingView 
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    style={styles.centeredView}
-                >
-                    <View style={styles.modalView}>
-                        <Text style={styles.modalTitle}>{isEditing ? 'Edit Customer' : 'Add New Customer'}</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Full Name"
-                            value={name}
-                            onChangeText={setName}
-                        />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Address"
-                            value={address}
-                            onChangeText={setAddress}
-                        />
-                         <TextInput
-                            style={styles.input}
-                            placeholder="Phone Number"
-                            value={phone}
-                            onChangeText={setPhone}
-                            keyboardType="phone-pad"
-                        />
-                        <View style={styles.modalButtons}>
-                            <Button title="Cancel" onPress={resetForm} color="#6c757d" />
-                            <Button title={isEditing ? 'Update' : 'Add'} onPress={handleAddOrUpdate} />
-                        </View>
-                    </View>
-                </KeyboardAvoidingView>
-            </Modal>
-        </SafeAreaView>
+        </View>
     );
 };
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#f8f9fa',
-    },
-    header: {
-        backgroundColor: 'white',
-        padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#dee2e6',
-        alignItems: 'center',
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-    },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#e9ecef',
-        borderRadius: 20,
-        margin: 10,
-        paddingHorizontal: 10,
-    },
-    searchIcon: {
-        marginRight: 5,
-    },
-    searchInput: {
-        flex: 1,
-        height: 40,
-    },
-    list: {
-        paddingHorizontal: 10,
-    },
-    itemContainer: {
-        backgroundColor: 'white',
-        padding: 15,
-        borderRadius: 10,
-        marginBottom: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
-        shadowRadius: 1.41,
-        elevation: 2,
-    },
-    itemInfo: {
-        // Add styles for name and address
-    },
-    itemName: {
-        fontSize: 18,
-        fontWeight: '500',
-    },
-    itemAddress: {
-        fontSize: 14,
-        color: '#6c757d',
-    },
-     addButton: {
-        backgroundColor: '#007bff',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 15,
-        marginHorizontal: 20,
-        borderRadius: 10,
-        marginBottom: 10
-    },
-    addButtonText: {
-        color: 'white',
-        fontSize: 18,
-        marginLeft: 10,
-    },
-    centeredView: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.5)',
-    },
-    modalView: {
-        margin: 20,
-        backgroundColor: 'white',
-        borderRadius: 20,
-        padding: 35,
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 2,
+const getStyles = (width) => {
+    const baseWidth = 375;
+    const scale = width / baseWidth;
+    const responsiveSize = (size) => Math.round(size * scale);
+
+    return StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: '#ffffff',
         },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
-        elevation: 5,
-        width: '90%',
-    },
-    modalTitle: {
-        fontSize: 20,
-        marginBottom: 15,
-        fontWeight: 'bold'
-    },
-    input: {
-        width: '100%',
-        height: 50,
-        borderColor: 'gray',
-        borderWidth: 1,
-        borderRadius: 10,
-        marginBottom: 15,
-        paddingHorizontal: 15,
-        fontSize: 16,
-    },
-    modalButtons: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        width: '100%',
-    },
-});
+        header: {
+            paddingTop: responsiveSize(60),
+            paddingBottom: responsiveSize(20),
+            paddingHorizontal: responsiveSize(20),
+            backgroundColor: '#ffffff',
+            alignItems: 'center',
+        },
+        headerTitle: {
+            fontSize: responsiveSize(24),
+            fontWeight: 'bold',
+            color: '#000',
+        },
+        searchContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#f0f0f0',
+            borderRadius: responsiveSize(10),
+            marginHorizontal: responsiveSize(20),
+            paddingHorizontal: responsiveSize(15),
+            marginBottom: responsiveSize(10),
+        },
+        searchIcon: {
+            marginRight: responsiveSize(10),
+        },
+        searchInput: {
+            flex: 1,
+            height: responsiveSize(45),
+            fontSize: responsiveSize(16),
+            color: '#000',
+        },
+        listContainer: {
+            paddingHorizontal: responsiveSize(20),
+        },
+        itemContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: responsiveSize(15),
+            borderBottomWidth: 1,
+            borderBottomColor: '#f0f0f0',
+        },
+        avatar: {
+            width: responsiveSize(40),
+            height: responsiveSize(40),
+            borderRadius: responsiveSize(20),
+            marginRight: responsiveSize(15),
+        },
+        itemInfo: {
+            flex: 1,
+        },
+        itemName: {
+            fontSize: responsiveSize(16),
+            fontWeight: '600',
+            color: '#000',
+        },
+        itemSubtitle: {
+            fontSize: responsiveSize(14),
+            color: '#6c757d',
+            marginTop: responsiveSize(2),
+        },
+        itemActions: {
+            flexDirection: 'row',
+            alignItems: 'center',
+        },
+        addButton: {
+            position: 'absolute',
+            bottom: responsiveSize(30),
+            right: responsiveSize(30),
+            backgroundColor: '#007bff',
+            width: responsiveSize(56),
+            height: responsiveSize(56),
+            borderRadius: responsiveSize(28),
+            alignItems: 'center',
+            justifyContent: 'center',
+            elevation: 8,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 4,
+        },
+        iconSize: responsiveSize(22),
+        searchIconSize: responsiveSize(20),
+        addButtonIconSize: responsiveSize(28),
+    });
+};
 
 export default CustomersScreen;

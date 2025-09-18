@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
       marginLeft: '5%',
       marginBottom: 5,
       fontSize: 14,
-      color: '#495057'
+      color: '#6c757d'
   },
   inputContainer: {
     flexDirection: 'row',

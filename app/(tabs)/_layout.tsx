@@ -21,6 +21,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="cloth-types"
+        options={{
+          title: 'Cloth Types',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="hanger" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="customers"
         options={{
           title: 'Customers',
@@ -47,15 +56,6 @@ export default function TabLayout() {
           ),
         }}
       />
-       <Tabs.Screen
-        name="cloth-types"
-        options={{
-          title: 'Cloth Types',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="hanger" color={color} size={size} />
-          ),
-        }}
-      />
       <Tabs.Screen
         name="profile"
         options={{
@@ -63,6 +63,13 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="account" color={color} size={size} />
           ),
+        }}
+      />
+      {/* This screen is hidden from the tab bar */}
+      <Tabs.Screen
+        name="customer/[id]"
+        options={{
+          href: null,
         }}
       />
     </Tabs>
