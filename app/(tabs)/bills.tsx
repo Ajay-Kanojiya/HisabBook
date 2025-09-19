@@ -305,7 +305,6 @@ const BillsScreen = () => {
                             style={styles.statusPicker}
                             itemStyle={styles.pickerItem}
                         >
-                            <Picker.Item label="Pending" value="Pending" />
                             <Picker.Item label="Paid" value="Paid" />
                             <Picker.Item label="Unpaid" value="Unpaid" />
                         </Picker>
@@ -403,24 +402,23 @@ const getStyles = (width) => {
             borderBottomColor: '#dee2e6' 
         },
         headerTitle: { fontSize: responsiveSize(20), fontWeight: 'bold', color: '#333' },
-        filtersContainer: { 
-            flexDirection: isSmallScreen ? 'column' : 'row', 
+        filtersContainer: {
+            flexDirection: 'row',
+            justifyContent: 'space-around',
+            alignItems: 'center',
             padding: responsiveSize(10),
-            backgroundColor: '#ffffff', 
-            borderBottomWidth: 1, 
+            backgroundColor: '#ffffff',
+            borderBottomWidth: 1,
             borderBottomColor: '#dee2e6',
         },
-        pickerContainer: { 
-            flex: isSmallScreen ? 0 : 1,
-            borderWidth: 1, 
-            borderColor: '#ced4da', 
-            borderRadius: 8, 
-            margin: isSmallScreen ? 5 : 0,
-            marginHorizontal: isSmallScreen ? 10 : 5,
-            justifyContent: 'center',
+        pickerContainer: {
+            flex: 1,
+            borderWidth: 1,
+            borderColor: '#ced4da',
+            borderRadius: 8,
+            marginHorizontal: 5,
         },
-        picker: { 
-            height: responsiveSize(45), 
+        picker: {
             width: '100%',
         },
         pickerItem: {
@@ -458,13 +456,10 @@ const getStyles = (width) => {
             borderWidth: 1,
             borderColor: '#ced4da',
             borderRadius: 8,
-            justifyContent: 'center',
-            height: responsiveSize(40),
             marginBottom: isSmallScreen ? 10 : 0,
         },
-        statusPicker: { 
+        statusPicker: {
             width: '100%',
-            height: responsiveSize(40),
         },
         actionsContainer: { 
             width: isSmallScreen ? '100%' : '50%',
