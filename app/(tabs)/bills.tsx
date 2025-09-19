@@ -120,7 +120,7 @@ const BillsScreen = () => {
 
             if(user){
                 const shopsRef = collection(db, 'shops');
-                const q = query(shopsRef, where("email", "==", user.email));
+                const q = query(shopsRef, where("userEmail", "==", user.email));
                 const shopsSnap = await getDocs(q);
                 if (!shopsSnap.empty) {
                     shop = shopsSnap.docs[0].data();
@@ -266,7 +266,7 @@ const BillsScreen = () => {
                     </View>
                     <View style={styles.actionsContainer}>
                         <TouchableOpacity onPress={() => router.push(`/bill/${item.id}`)}>
-                            <Text style={styles.viewDetails}>View</Text>
+                            <Text style={styles.viewDetails}>View Details</Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => handleGenerateAndDownloadPdf(item)} style={{marginLeft: 10}}>
                             <MaterialCommunityIcons name="file-pdf-box" size={styles.iconSize} color="#DC3545" />

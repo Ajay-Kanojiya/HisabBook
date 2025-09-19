@@ -40,7 +40,7 @@ const BillDetailsScreen = () => {
             const user = auth.currentUser;
             if (user) {
                 const shopsRef = collection(db, 'shops');
-                const q = query(shopsRef, where("email", "==", user.email));
+                const q = query(shopsRef, where("userEmail", "==", user.email));
                 const shopsSnap = await getDocs(q);
                 if (!shopsSnap.empty) {
                     const shopDoc = shopsSnap.docs[0];

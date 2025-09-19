@@ -1,14 +1,48 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, Alert, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { auth } from '@/config/firebase';
+import { auth, db } from '@/config/firebase';
+import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 
 const ProfileScreen = () => {
     const router = useRouter();
     const user = auth.currentUser;
     const { width } = useWindowDimensions();
     const styles = getStyles(width);
+    const [shop, setShop] = useState(null);
+
+    useEffect(() => {
+        if (user) {
+            const fetchShopData = async () => {
+                const shopsRef = collection(db, 'shops');
+                const q = query(shopsRef, where("userEmail", "==", user.email));
+                const querySnapshot = await getDocs(q);
+                if (querySnapshot.empty) {
+                    console.log("No shop details found, creating new one.");
+                    const newShop = {
+                        userEmail: user.email,
+                        shopName: "The Laundry Hub",
+                        address: "123 Main Street, Anytown",
+                        operatingHours: "10:00 AM - 8:00 PM",
+                    };
+                    try {
+                        const docRef = await addDoc(shopsRef, newShop);
+                        setShop({ ...newShop, id: docRef.id });
+                        console.log("New shop details created: ", { ...newShop, id: docRef.id });
+                    } catch (error) {
+                        console.error("Error creating shop details: ", error);
+                        Alert.alert("Error", "Could not create shop details.");
+                    }
+                } else {
+                    const shopData = querySnapshot.docs[0].data();
+                    console.log("Shop details fetched: ", shopData);
+                    setShop({ ...shopData, id: querySnapshot.docs[0].id });
+                }
+            };
+            fetchShopData();
+        }
+    }, [user]);
 
     const handleLogout = () => {
         auth.signOut().then(() => {
@@ -40,15 +74,15 @@ const ProfileScreen = () => {
                 <Text style={styles.sectionTitle}>Shop Information</Text>
                 <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Shop Name</Text>
-                    <Text style={styles.infoValue}>The Laundry Hub</Text>
+                    <Text style={styles.infoValue}>{shop ? shop.shopName : 'Loading...'}</Text>
                 </View>
                  <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Shop Address</Text>
-                    <Text style={styles.infoValue}>123 Main Street, Anytown</Text>
+                    <Text style={styles.infoValue}>{shop ? shop.address : 'Loading...'}</Text>
                 </View>
                  <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Operating Hours</Text>
-                    <Text style={styles.infoValue}>10:00 AM - 8:00 PM</Text>
+                    <Text style={styles.infoValue}>{shop ? shop.operatingHours : 'Loading...'}</Text>
                 </View>
             </View>
 
