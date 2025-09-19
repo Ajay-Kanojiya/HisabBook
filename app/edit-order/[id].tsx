@@ -114,7 +114,7 @@ const EditOrderScreen = () => {
                 total,
             });
 
-            await logActivity('order_updated', user.email, id as string, { total });
+            await logActivity('order_updated', id as string, { total });
             Alert.alert('Success', 'Order updated successfully.');
             router.replace('/(tabs)/orders');
         } catch (error) {
@@ -141,7 +141,7 @@ const EditOrderScreen = () => {
                         try {
                             const orderDocRef = doc(db, 'orders', id as string);
                             await deleteDoc(orderDocRef);
-                            await logActivity('order_deleted', user.email, id as string, { total: originalOrder.total });
+                            await logActivity('order_deleted', id as string, { total: originalOrder.total });
                             Alert.alert('Success', 'Order deleted successfully.');
                             router.replace('/(tabs)/orders');
                         } catch (error) {

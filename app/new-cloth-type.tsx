@@ -32,7 +32,7 @@ const NewClothTypeScreen = () => {
                 userEmail: user.email,
                 createdAt: serverTimestamp(),
             });
-            await logActivity('cloth_type_created', user.email, docRef.id, { name, price: priceValue });
+            await logActivity('cloth_type_created', docRef.id, { name, price: priceValue });
             Alert.alert('Success', 'Cloth type added successfully.');
             router.replace('/(tabs)/cloth-types');
         } catch (error) {

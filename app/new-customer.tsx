@@ -34,7 +34,7 @@ const NewCustomerScreen = () => {
                 userEmail: user.email,
                 createdAt: serverTimestamp(),
             });
-            await logActivity('customer_created', user.email, docRef.id, { name });
+            await logActivity('customer_created', docRef.id, { name });
             Alert.alert('Success', 'Customer added successfully.');
             router.replace('/(tabs)/customers');
         } catch (error) {

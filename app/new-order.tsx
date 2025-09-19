@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity, useWindowDimensions, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { collection, addDoc, serverTimestamp, getDocs, query, where } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, getDocs, query, where } from 'firebase/firestore';
 import { db, auth } from '@/config/firebase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { logActivity } from '@/utils/logActivity';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const NewOrderScreen = () => {
     const [customer, setCustomer] = useState('');
@@ -13,6 +14,8 @@ const NewOrderScreen = () => {
     const [items, setItems] = useState([{ clothTypeId: '', quantity: '', price: 0, totalPrice: 0 }]);
     const [clothTypes, setClothTypes] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [orderDate, setOrderDate] = useState(new Date());
+    const [showDatePicker, setShowDatePicker] = useState(false);
     const router = useRouter();
     const user = auth.currentUser;
     const { width } = useWindowDimensions();
@@ -99,6 +102,13 @@ const NewOrderScreen = () => {
             Alert.alert("Cannot Remove", "You must have at least one item in the order.");
         }
     };
+    
+    const onDateChange = (event, selectedDate) => {
+        setShowDatePicker(false);
+        if (selectedDate) {
+            setOrderDate(selectedDate);
+        }
+    };
 
     const handleSave = async () => {
         if (!customer || items.some(item => !item.clothTypeId || !item.quantity || parseFloat(item.quantity) <= 0)) {
@@ -111,6 +121,7 @@ const NewOrderScreen = () => {
         }
 
         const total = items.reduce((sum, item) => sum + item.totalPrice, 0);
+        const creationTimestamp = Timestamp.fromDate(orderDate);
 
         try {
             const docRef = await addDoc(collection(db, 'orders'), {
@@ -124,10 +135,10 @@ const NewOrderScreen = () => {
                 })),
                 total,
                 status: 'Pending',
-                createdAt: serverTimestamp(),
-                lastModified: serverTimestamp()
+                createdAt: creationTimestamp,
+                lastModified: creationTimestamp
             });
-            await logActivity('order_created', user.email, docRef.id, { total });
+            await logActivity('order_created', docRef.id, { total });
             Alert.alert('Success', 'Order created successfully.');
             router.replace('/(tabs)/orders');
         } catch (error) {
@@ -170,6 +181,21 @@ const NewOrderScreen = () => {
                             ))}
                         </Picker>
                     </View>
+
+                    <Text style={styles.label}>Order Date</Text>
+                        <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateDisplay}>
+                            <Text style={styles.dateText}>{orderDate.toLocaleDateString()}</Text>
+                            <MaterialCommunityIcons name="calendar" size={24} color="#007bff" />
+                        </TouchableOpacity>
+
+                    {showDatePicker && (
+                        <DateTimePicker
+                            value={orderDate}
+                            mode="date"
+                            display="default"
+                            onChange={onDateChange}
+                        />
+                    )}
 
                     <Text style={styles.itemsHeader}>Items</Text>
 
@@ -232,6 +258,8 @@ const getStyles = (width) => {
             flex: 1,
             backgroundColor: '#F4F7FC',
         },
+        dateDisplay: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white', borderRadius: 8, borderWidth: 1, borderColor: '#ced4da', padding: 15, marginBottom: 25 },
+        dateText: { fontSize: 16 * scale },
         container_loading: {
             flex: 1,
             justifyContent: 'center',

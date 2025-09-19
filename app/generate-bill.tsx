@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Alert, TouchableOpacity, useWindowDimensions, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { collection, addDoc, serverTimestamp, getDocs, query, where, orderBy, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/config/firebase';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -89,7 +89,7 @@ const GenerateBillScreen = () => {
             }
 
             const orders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            const totalAmount = orders.reduce((acc, order) => acc + order.total, 0);
+            const totalAmount = orders.reduce((acc, order) => acc + (Number(order.total) || 0), 0);
             const orderIds = orders.map(order => order.id);
 
             const allItems = [];
@@ -101,27 +101,36 @@ const GenerateBillScreen = () => {
             });
 
             orders.forEach(order => {
-                if (order.items) {
+                if (order.items && Array.isArray(order.items)) {
                     order.items.forEach(item => {
-                        allItems.push({
-                            ...item,
-                            clothTypeName: item.clothTypeId ? clothTypes[item.clothTypeId] : 'N/A'
-                        });
+                        if (item) {
+                            const lookedUpClothTypeName = item.clothTypeId ? clothTypes[item.clothTypeId] : undefined;
+                            const newItem = {
+                                clothTypeId: item.clothTypeId || null,
+                                quantity: Number(item.quantity) || 0,
+                                price: Number(item.price) || 0,
+                                totalPrice: Number(item.totalPrice) || 0,
+                                clothTypeName: lookedUpClothTypeName || 'N/A'
+                            };
+                            allItems.push(newItem);
+                        }
                     });
                 }
             });
 
-            await addDoc(collection(db, 'bills'), {
+            const billData = {
                 userEmail: user.email,
                 customerId: selectedCustomer,
                 createdAt: serverTimestamp(),
                 startDate: start,
-                endDate: endDate,
+                endDate: end,
                 total: totalAmount,
                 status: 'Pending',
                 orderIds: orderIds,
                 items: allItems,
-            });
+            };
+
+            await addDoc(collection(db, 'bills'), billData);
 
             Alert.alert("Success", "Bill generated successfully!");
             router.replace('/(tabs)/bills');

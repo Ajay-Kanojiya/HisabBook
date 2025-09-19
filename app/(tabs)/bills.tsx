@@ -1,15 +1,24 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import {
-    View, Text, StyleSheet, FlatList, TouchableOpacity, Alert,
-    useWindowDimensions, ActivityIndicator, RefreshControl, Platform
-} from 'react-native';
-import { collection, getDocs, query, where, doc, orderBy, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db, auth } from '@/config/firebase';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { auth, db } from '@/config/firebase';
+import { logActivity } from '@/utils/logActivity';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { printToFileAsync } from 'expo-print';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { shareAsync } from 'expo-sharing';
+import { collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, updateDoc, where } from 'firebase/firestore';
+import React, { useCallback, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Platform,
+    RefreshControl,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    useWindowDimensions,
+    View
+} from 'react-native';
 
 const BillsScreen = () => {
     const [bills, setBills] = useState([]);
@@ -25,9 +34,11 @@ const BillsScreen = () => {
     const { width } = useWindowDimensions();
     const styles = getStyles(width);
 
-    const fetchData = useCallback(async () => {
-        if (!user) return;
-        setLoading(true);
+    const fetchData = async () => {
+        if (!user) {
+            setLoading(false);
+            return;
+        }
         try {
             // Fetch Shop Details
             const usersRef = collection(db, 'users');
@@ -81,18 +92,19 @@ const BillsScreen = () => {
         } finally {
             setLoading(false);
         }
-    }, [user, selectedCustomer, selectedStatus]);
+    };
 
     useFocusEffect(
         useCallback(() => {
+            setLoading(true);
             fetchData();
-        }, [fetchData])
+        }, [user, selectedCustomer, selectedStatus])
     );
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
         fetchData().then(() => setRefreshing(false));
-    }, [fetchData]);
+    }, [user, selectedCustomer, selectedStatus]);
 
     const numberToWords = (num) => {
         const a = ['', 'one ', 'two ', 'three ', 'four ', 'five ', 'six ', 'seven ', 'eight ', 'nine ', 'ten ', 'eleven ', 'twelve ', 'thirteen ', 'fourteen ', 'fifteen ', 'sixteen ', 'seventeen ', 'eighteen ', 'nineteen '];
@@ -229,10 +241,15 @@ const BillsScreen = () => {
         }
     };
 
-    const handleStatusUpdate = async (billId, newStatus) => {
+    const handleStatusUpdate = async (billId, newStatus, total) => {
         try {
             const billRef = doc(db, "bills", billId);
             await updateDoc(billRef, { status: newStatus });
+
+            if (newStatus === 'Paid') {
+                await logActivity('bill_paid', billId, { total });
+            }
+
             setBills(prevBills => prevBills.map(b => b.id === billId ? { ...b, status: newStatus } : b));
         } catch (error) {
             console.error("Error updating status: ", error);
@@ -240,7 +257,7 @@ const BillsScreen = () => {
         }
     };
 
-    const handleDeleteBill = (billId) => {
+    const handleDeleteBill = (billToDelete) => {
         Alert.alert(
             "Delete Bill",
             "Are you sure you want to delete this bill? This action cannot be undone.",
@@ -251,8 +268,9 @@ const BillsScreen = () => {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            await deleteDoc(doc(db, "bills", billId));
-                            fetchData(); // Refetch bills after deletion
+                            await deleteDoc(doc(db, "bills", billToDelete.id));
+                            await logActivity('bill_deleted', billToDelete.id, { customerName: billToDelete.customerName });
+                            setBills(prevBills => prevBills.filter(bill => bill.id !== billToDelete.id));
                         } catch (error) {
                             console.error("Error deleting bill: ", error);
                             Alert.alert("Error", "Could not delete bill.");
@@ -279,7 +297,7 @@ const BillsScreen = () => {
                     <View style={styles.statusPickerContainer}>
                         <Picker
                             selectedValue={item.status}
-                            onValueChange={(itemValue) => handleStatusUpdate(item.id, itemValue)}
+                            onValueChange={(itemValue) => handleStatusUpdate(item.id, itemValue, item.total)}
                             style={[styles.statusPicker, { color: statusColor }]}
                             itemStyle={styles.pickerItem}
                         >
@@ -295,7 +313,7 @@ const BillsScreen = () => {
                         <TouchableOpacity onPress={() => handleGenerateAndDownloadPdf(item)} style={{marginLeft: 10}}>
                             <MaterialCommunityIcons name="file-pdf-box" size={styles.iconSize} color="#DC3545" />
                         </TouchableOpacity>
-                        <TouchableOpacity onPress={() => handleDeleteBill(item.id)} style={{marginLeft: 10}}>
+                        <TouchableOpacity onPress={() => handleDeleteBill(item)} style={{marginLeft: 10}}>
                             <MaterialCommunityIcons name="delete" size={styles.iconSize} color="#DC3545" />
                         </TouchableOpacity>
                     </View>
@@ -307,11 +325,6 @@ const BillsScreen = () => {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.push('/(tabs)/home')}>
-                    <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Bills</Text>
-                <View style={{width: 24}}/>
             </View>
 
             <View style={styles.filtersContainer}>
@@ -377,16 +390,12 @@ const getStyles = (width) => {
             paddingBottom: responsiveSize(15), 
             paddingHorizontal: responsiveSize(20), 
             backgroundColor: '#ffffff', 
-            borderBottomWidth: 1, 
-            borderBottomColor: '#dee2e6' 
         },
         headerTitle: { fontSize: responsiveSize(20), fontWeight: 'bold', color: '#333' },
         filtersContainer: { 
             flexDirection: 'row', 
             padding: responsiveSize(10),
-            backgroundColor: '#ffffff', 
-            borderBottomWidth: 1, 
-            borderBottomColor: '#dee2e6',
+            backgroundColor: '#ffffff',
             alignItems: 'center',
         },
         pickerContainer: { 

@@ -1,9 +1,10 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput, useWindowDimensions, ActivityIndicator } from 'react-native';
-import { collection, getDocs, query, where, deleteDoc, doc, orderBy, getDoc } from 'firebase/firestore';
-import { db, auth } from '@/config/firebase';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { auth, db } from '@/config/firebase';
+import { logActivity } from '@/utils/logActivity';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, where } from 'firebase/firestore';
+import React, { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 
 const OrdersScreen = () => {
     const [orders, setOrders] = useState([]);
@@ -14,48 +15,62 @@ const OrdersScreen = () => {
     const { width } = useWindowDimensions();
     const styles = getStyles(width);
 
-    const fetchOrders = async () => {
-        if (!user) return;
-        setLoading(true);
-        try {
-            const ordersCollection = collection(db, 'orders');
-            const q = query(ordersCollection, where("userEmail", "==", user.email), orderBy("lastModified", "desc"));
-            const ordersSnapshot = await getDocs(q);
-
-            const ordersList = await Promise.all(ordersSnapshot.docs.map(async (orderDoc) => {
-                const orderData = orderDoc.data();
-                let customerName = 'N/A';
-                if (orderData.customerId) {
-                    const customerRef = doc(db, "customers", orderData.customerId);
-                    const customerSnap = await getDoc(customerRef);
-                    if (customerSnap.exists()) {
-                        customerName = customerSnap.data().name;
-                    }
-                }
-                return {
-                    ...orderData,
-                    id: orderDoc.id,
-                    customerName,
-                };
-            }));
-            setOrders(ordersList);
-        } catch (error) {
-            console.error("Error fetching orders: ", error);
-            Alert.alert("Error", "Could not fetch orders. Make sure you have created the necessary Firestore indexes.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
     useFocusEffect(
         useCallback(() => {
-            if (user) {
-                fetchOrders();
-            }
+            let isActive = true;
+
+            const fetchOrders = async () => {
+                if (!user) {
+                    if (isActive) setLoading(false);
+                    return;
+                }
+                setLoading(true);
+                try {
+                    const ordersCollection = collection(db, 'orders');
+                    const q = query(ordersCollection, where("userEmail", "==", user.email), orderBy("lastModified", "desc"));
+                    const ordersSnapshot = await getDocs(q);
+
+                    const ordersList = await Promise.all(ordersSnapshot.docs.map(async (orderDoc) => {
+                        const orderData = orderDoc.data();
+                        let customerName = 'N/A';
+                        if (orderData.customerId) {
+                            const customerRef = doc(db, "customers", orderData.customerId);
+                            const customerSnap = await getDoc(customerRef);
+                            if (customerSnap.exists()) {
+                                customerName = customerSnap.data().name;
+                            }
+                        }
+                        return {
+                            ...orderData,
+                            id: orderDoc.id,
+                            customerName,
+                        };
+                    }));
+
+                    if (isActive) {
+                        setOrders(ordersList);
+                    }
+                } catch (error) {
+                    console.error("Error fetching orders: ", error);
+                    if (isActive) {
+                        Alert.alert("Error", "Could not fetch orders. Make sure you have created the necessary Firestore indexes.");
+                    }
+                } finally {
+                    if (isActive) {
+                        setLoading(false);
+                    }
+                }
+            };
+
+            fetchOrders();
+
+            return () => {
+                isActive = false;
+            };
         }, [user])
     );
 
-    const handleDelete = (id) => {
+    const handleDelete = (orderToDelete) => {
         Alert.alert(
             "Delete Order",
             "Are you sure you want to delete this order?",
@@ -66,8 +81,9 @@ const OrdersScreen = () => {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            await deleteDoc(doc(db, "orders", id));
-                            fetchOrders();
+                            await deleteDoc(doc(db, "orders", orderToDelete.id));
+                            await logActivity('order_deleted', { documentId: orderToDelete.id, customerName: orderToDelete.customerName });
+                            setOrders(prevOrders => prevOrders.filter(order => order.id !== orderToDelete.id));
                         } catch (error) {
                             console.error("Error deleting document: ", error);
                             Alert.alert("Error", "Could not delete order.");
@@ -113,7 +129,7 @@ const OrdersScreen = () => {
                 <TouchableOpacity onPress={() => router.push(`/edit-order/${item.id}`)} style={styles.actionButton}>
                     <MaterialCommunityIcons name="pencil" size={styles.iconSize} color="#007bff" />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.actionButton}>
+                <TouchableOpacity onPress={() => handleDelete(item)} style={styles.actionButton}>
                     <MaterialCommunityIcons name="delete" size={styles.iconSize} color="#dc3545" />
                 </TouchableOpacity>
             </View>
@@ -123,24 +139,17 @@ const OrdersScreen = () => {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                 <TouchableOpacity onPress={() => router.push('/(tabs)/home')}>
-                    <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Orders</Text>
-                <View style={{width: 24}}/>
             </View>
 
-            <View style={styles.controlsContainer}>
-                 <View style={styles.searchContainer}>
-                    <MaterialCommunityIcons name="magnify" size={styles.searchIconSize} color="#888" style={styles.searchIcon} />
-                    <TextInput
-                        style={styles.searchInput}
-                        placeholder="Search by customer or #"
-                        placeholderTextColor="#888"
-                        value={search}
-                        onChangeText={setSearch}
-                    />
-                </View>
+            <View style={styles.searchContainer}>
+                <MaterialCommunityIcons name="magnify" size={styles.searchIconSize} color="#888" style={styles.searchIcon} />
+                <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search by customer or #"
+                    placeholderTextColor="#888"
+                    value={search}
+                    onChangeText={setSearch}
+                />
             </View>
 
             {loading ? (
@@ -179,23 +188,18 @@ const getStyles = (width) => {
             paddingBottom: responsiveSize(15), 
             paddingHorizontal: responsiveSize(20), 
             backgroundColor: '#ffffff', 
-            borderBottomWidth: 1, 
-            borderBottomColor: '#dee2e6' 
         },
         headerTitle: {
             fontSize: responsiveSize(24),
             fontWeight: 'bold',
             color: '#000',
         },
-        controlsContainer: {
-            paddingHorizontal: responsiveSize(20),
-            paddingBottom: responsiveSize(10),
-        },
         searchContainer: {
             flexDirection: 'row',
             alignItems: 'center',
             backgroundColor: '#f0f0f0',
             borderRadius: responsiveSize(10),
+            marginHorizontal: responsiveSize(20),
             paddingHorizontal: responsiveSize(15),
             marginBottom: responsiveSize(10),
         },

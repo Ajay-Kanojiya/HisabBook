@@ -1,11 +1,12 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image, Alert } from 'react-native';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const ProfileScreen = () => {
     const [user, setUser] = useState<User | null>(null);
@@ -67,7 +68,6 @@ const ProfileScreen = () => {
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Profile</Text>
             </View>
 
             <View style={styles.profileContainer}>
@@ -84,7 +84,6 @@ const ProfileScreen = () => {
                 <Text style={styles.cardTitle}>Shop Information</Text>
                 <InfoRow icon="storefront-outline" label="Shop Name" value={userInfo?.shopName || 'Not set'} />
                 <InfoRow icon="map-marker-outline" label="Address" value={userInfo?.address || 'Not set'} />
-                <InfoRow icon="clock-outline" label="Operating Hours" value={userInfo?.operatingHours || 'Not set'} />
             </View>
 
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -114,10 +113,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 20,
+        paddingHorizontal: 20,
+        paddingBottom: 20,
         backgroundColor: '#ffffff',
-        borderBottomWidth: 1,
-        borderBottomColor: '#dee2e6',
     },
     headerTitle: {
         fontSize: 28,
@@ -136,6 +134,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 15,
+        marginTop: 10,
     },
     profileName: {
         fontSize: 24,

@@ -54,7 +54,7 @@ const EditCustomerScreen = () => {
                 address: address,
                 phone: phone,
             });
-            await logActivity('customer_updated', user.email, id as string, { name });
+            await logActivity('customer_updated', { documentId: id, name });
             Alert.alert('Success', 'Customer updated successfully.');
             router.replace('/(tabs)/customers');
         } catch (error) {
@@ -81,7 +81,7 @@ const EditCustomerScreen = () => {
                         try {
                             const docRef = doc(db, 'customers', id as string);
                             await deleteDoc(docRef);
-                            await logActivity('customer_deleted', user.email, id as string, { name });
+                            await logActivity('customer_deleted', { documentId: id, name });
                             Alert.alert('Success', 'Customer deleted successfully.');
                             router.replace('/(tabs)/customers');
                         } catch (error) {

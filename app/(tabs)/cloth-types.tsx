@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput, useWindowDimensions } from 'react-native';
 import { collection, getDocs, query, where, deleteDoc, doc, orderBy } from 'firebase/firestore';
@@ -6,6 +5,7 @@ import { db, auth } from '@/config/firebase';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import { logActivity } from '@/utils/logActivity';
 
 const ClothTypesScreen = () => {
     const [clothTypes, setClothTypes] = useState([]);
@@ -22,37 +22,41 @@ const ClothTypesScreen = () => {
         return unsubscribe; // Unsubscribe on component unmount
     }, []);
 
-    const fetchClothTypes = useCallback(async () => {
-        if (!user || !user.email) {
-            setClothTypes([]);
-            return;
-        }
-        try {
-            const clothTypesCollection = collection(db, 'cloth-types');
-            const q = query(clothTypesCollection, where("userEmail", "==", user.email), orderBy("createdAt", "desc"));
-            const clothTypesSnapshot = await getDocs(q);
-            const clothTypesList = clothTypesSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-            setClothTypes(clothTypesList);
-        } catch (error) {
-            console.error("Error fetching cloth types: ", error);
-            Alert.alert("Error", "Could not fetch cloth types.");
-        }
-    }, [user]);
-
-    useEffect(() => {
-        fetchClothTypes();
-    }, [user, fetchClothTypes]);
-
     useFocusEffect(
         useCallback(() => {
+            let isActive = true;
+
+            const fetchClothTypes = async () => {
+                if (!user || !user.email) {
+                    if (isActive) setClothTypes([]);
+                    return;
+                }
+                try {
+                    const clothTypesCollection = collection(db, 'cloth-types');
+                    const q = query(clothTypesCollection, where("userEmail", "==", user.email), orderBy("createdAt", "desc"));
+                    const clothTypesSnapshot = await getDocs(q);
+                    if (isActive) {
+                        const clothTypesList = clothTypesSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+                        setClothTypes(clothTypesList);
+                    }
+                } catch (error) {
+                    console.error("Error fetching cloth types: ", error);
+                    if (isActive) Alert.alert("Error", "Could not fetch cloth types.");
+                }
+            };
+
             fetchClothTypes();
-        }, [fetchClothTypes])
+
+            return () => {
+                isActive = false;
+            };
+        }, [user])
     );
 
-    const handleDelete = (id) => {
+    const handleDelete = (clothTypeToDelete) => {
         Alert.alert(
             "Delete Cloth Type",
-            "Are you sure you want to delete this cloth type?",
+            `Are you sure you want to delete ${clothTypeToDelete.name}?`,
             [
                 { text: "Cancel", style: "cancel" },
                 {
@@ -60,8 +64,9 @@ const ClothTypesScreen = () => {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            await deleteDoc(doc(db, "cloth-types", id));
-                            fetchClothTypes();
+                            await deleteDoc(doc(db, "cloth-types", clothTypeToDelete.id));
+                            await logActivity('cloth_type_deleted', { documentId: clothTypeToDelete.id, name: clothTypeToDelete.name });
+                            setClothTypes(prevClothTypes => prevClothTypes.filter(clothType => clothType.id !== clothTypeToDelete.id));
                         } catch (error) {
                             console.error("Error deleting document: ", error);
                             Alert.alert("Error", "Could not delete cloth type.");
@@ -99,7 +104,7 @@ const ClothTypesScreen = () => {
                 <TouchableOpacity onPress={(e) => { e.stopPropagation(); router.push(`/edit-cloth-type/${item.id}`)}}>
                     <MaterialCommunityIcons name="pencil-outline" size={styles.iconSize} color="#6c757d" />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDelete(item.id)}} style={{ marginLeft: 15 }}>
+                <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDelete(item)}} style={{ marginLeft: 15 }}>
                     <MaterialCommunityIcons name="trash-can-outline" size={styles.iconSize} color="#dc3545" />
                 </TouchableOpacity>
             </View>
@@ -109,7 +114,6 @@ const ClothTypesScreen = () => {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Cloth Types</Text>
             </View>
             <View style={styles.searchContainer}>
                 <MaterialCommunityIcons name="magnify" size={styles.searchIconSize} color="#888" style={styles.searchIcon} />

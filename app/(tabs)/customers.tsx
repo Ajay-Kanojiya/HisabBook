@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput, useWindowDimensions } from 'react-native';
 import { collection, getDocs, query, where, deleteDoc, doc, orderBy } from 'firebase/firestore';
@@ -6,6 +5,7 @@ import { db, auth } from '@/config/firebase';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import { logActivity } from '@/utils/logActivity';
 
 const CustomersScreen = () => {
     const [customers, setCustomers] = useState([]);
@@ -22,37 +22,41 @@ const CustomersScreen = () => {
         return unsubscribe; // Unsubscribe on component unmount
     }, []);
 
-    const fetchCustomers = useCallback(async () => {
-        if (!user || !user.email) {
-            setCustomers([]);
-            return;
-        }
-        try {
-            const customersCollection = collection(db, 'customers');
-            const q = query(customersCollection, where("userEmail", "==", user.email), orderBy("createdAt", "desc"));
-            const customersSnapshot = await getDocs(q);
-            const customersList = customersSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-            setCustomers(customersList);
-        } catch (error) {
-            console.error("Error fetching customers: ", error);
-            Alert.alert("Error", "Could not fetch customers.");
-        }
-    }, [user]);
-
-    useEffect(() => {
-        fetchCustomers();
-    }, [user, fetchCustomers]);
-
     useFocusEffect(
         useCallback(() => {
+            let isActive = true;
+
+            const fetchCustomers = async () => {
+                if (!user || !user.email) {
+                    if (isActive) setCustomers([]);
+                    return;
+                }
+                try {
+                    const customersCollection = collection(db, 'customers');
+                    const q = query(customersCollection, where("userEmail", "==", user.email), orderBy("createdAt", "desc"));
+                    const customersSnapshot = await getDocs(q);
+                    if (isActive) {
+                        const customersList = customersSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+                        setCustomers(customersList);
+                    }
+                } catch (error) {
+                    console.error("Error fetching customers: ", error);
+                    if (isActive) Alert.alert("Error", "Could not fetch customers.");
+                }
+            };
+
             fetchCustomers();
-        }, [fetchCustomers])
+
+            return () => {
+                isActive = false;
+            };
+        }, [user])
     );
 
-    const handleDelete = (id) => {
+    const handleDelete = (customerToDelete) => {
         Alert.alert(
             "Delete Customer",
-            "Are you sure you want to delete this customer?",
+            `Are you sure you want to delete ${customerToDelete.name}?`,
             [
                 { text: "Cancel", style: "cancel" },
                 {
@@ -60,8 +64,9 @@ const CustomersScreen = () => {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            await deleteDoc(doc(db, "customers", id));
-                            fetchCustomers();
+                            await deleteDoc(doc(db, "customers", customerToDelete.id));
+                            await logActivity('customer_deleted', { documentId: customerToDelete.id, name: customerToDelete.name });
+                            setCustomers(prevCustomers => prevCustomers.filter(customer => customer.id !== customerToDelete.id));
                         } catch (error) {
                             console.error("Error deleting document: ", error);
                             Alert.alert("Error", "Could not delete customer.");
@@ -89,7 +94,7 @@ const CustomersScreen = () => {
                 <TouchableOpacity onPress={(e) => { e.stopPropagation(); router.push(`/edit-customer/${item.id}`)}}>
                     <MaterialCommunityIcons name="pencil-outline" size={styles.iconSize} color="#6c757d" />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDelete(item.id)}} style={{ marginLeft: 15 }}>
+                <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDelete(item)}} style={{ marginLeft: 15 }}>
                     <MaterialCommunityIcons name="trash-can-outline" size={styles.iconSize} color="#dc3545" />
                 </TouchableOpacity>
             </View>
@@ -99,7 +104,6 @@ const CustomersScreen = () => {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Customers</Text>
             </View>
             <View style={styles.searchContainer}>
                 <MaterialCommunityIcons name="magnify" size={styles.searchIconSize} color="#888" style={styles.searchIcon} />

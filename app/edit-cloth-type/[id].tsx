@@ -54,7 +54,7 @@ const EditClothTypeScreen = () => {
                 name: name,
                 price: priceValue,
             });
-            await logActivity('cloth_type_updated', user.email, id as string, { name, price: priceValue });
+            await logActivity('cloth_type_updated', { documentId: id, name, price: priceValue });
             Alert.alert('Success', 'Cloth type updated successfully.');
             router.replace('/(tabs)/cloth-types');
         } catch (error) {
@@ -81,7 +81,7 @@ const EditClothTypeScreen = () => {
                         try {
                             const docRef = doc(db, 'cloth-types', id as string);
                             await deleteDoc(docRef);
-                            await logActivity('cloth_type_deleted', user.email, id as string, { name: originalName });
+                            await logActivity('cloth_type_deleted', { documentId: id, name: originalName });
                             Alert.alert('Success', 'Cloth type deleted successfully.');
                             router.replace('/(tabs)/cloth-types');
                         } catch (error) {
