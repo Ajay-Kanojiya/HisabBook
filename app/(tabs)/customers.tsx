@@ -13,7 +13,7 @@ const CustomersScreen = () => {
     const { width } = useWindowDimensions();
     const styles = getStyles(width);
 
-    const fetchCustomers = async () => {
+    const fetchCustomers = useCallback(async () => {
         if (!user) return;
         try {
             const customersCollection = collection(db, 'customers');
@@ -25,15 +25,9 @@ const CustomersScreen = () => {
             console.error("Error fetching customers: ", error);
             Alert.alert("Error", "Could not fetch customers.");
         }
-    };
+    }, [user]);
 
-    useFocusEffect(
-        useCallback(() => {
-            if (user) {
-                fetchCustomers();
-            }
-        }, [user])
-    );
+    useFocusEffect(fetchCustomers);
 
     const handleDelete = (id) => {
         Alert.alert(
@@ -63,21 +57,21 @@ const CustomersScreen = () => {
     );
 
     const renderItem = ({ item }) => (
-        <View style={styles.itemContainer}>
+        <TouchableOpacity onPress={() => router.push(`/customer/${item.id}`)} style={styles.itemContainer}>
             <Image source={{ uri: 'https://i.pravatar.cc/150?u=' + item.id }} style={styles.avatar} />
             <View style={styles.itemInfo}>
                 <Text style={styles.itemName}>{item.name}</Text>
                 <Text style={styles.itemSubtitle}>{item.address}</Text>
             </View>
             <View style={styles.itemActions}>
-                <TouchableOpacity onPress={() => router.push(`/edit-customer/${item.id}`)}>
+                <TouchableOpacity onPress={(e) => { e.stopPropagation(); router.push(`/edit-customer/${item.id}`)}}>
                     <MaterialCommunityIcons name="pencil-outline" size={styles.iconSize} color="#6c757d" />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleDelete(item.id)} style={{ marginLeft: 15 }}>
+                <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDelete(item.id)}} style={{ marginLeft: 15 }}>
                     <MaterialCommunityIcons name="trash-can-outline" size={styles.iconSize} color="#dc3545" />
                 </TouchableOpacity>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 
     return (

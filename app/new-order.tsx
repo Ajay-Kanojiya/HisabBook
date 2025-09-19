@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity, useWindowDimensions, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { collection, addDoc, serverTimestamp, getDocs, query } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs, query, where } from 'firebase/firestore';
 import { db, auth } from '@/config/firebase';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
@@ -21,7 +21,13 @@ const NewOrderScreen = () => {
     const fetchCustomersAndClothTypes = async () => {
         setLoading(true);
         try {
-            const customersQuery = query(collection(db, 'customers'));
+            if (!user) {
+                Alert.alert("Authentication Error", "You must be logged in to create an order.");
+                setLoading(false);
+                return;
+            }
+
+            const customersQuery = query(collection(db, 'customers'), where("userEmail", "==", user.email));
             const customersSnapshot = await getDocs(customersQuery);
             const customersList = customersSnapshot.docs
                 .map(doc => {
@@ -36,7 +42,7 @@ const NewOrderScreen = () => {
                 .filter(Boolean);
             setCustomers(customersList);
 
-            const clothTypesQuery = query(collection(db, 'cloth-types'));
+            const clothTypesQuery = query(collection(db, 'cloth-types'), where("userEmail", "==", user.email));
             const clothTypesSnapshot = await getDocs(clothTypesQuery);
             const clothTypesList = clothTypesSnapshot.docs
                 .map(doc => {
@@ -119,6 +125,7 @@ const NewOrderScreen = () => {
                 total,
                 status: 'Pending',
                 createdAt: serverTimestamp(),
+                lastModified: serverTimestamp()
             });
             await logActivity('order_created', user.email, docRef.id, { total });
             Alert.alert('Success', 'Order created successfully.');
@@ -133,7 +140,7 @@ const NewOrderScreen = () => {
         return (
             <View style={styles.container_loading}>
                 <ActivityIndicator size="large" color="#4285F4" />
-                <Text style={styles.loading_text}>Validating Data...</Text>
+                <Text style={styles.loading_text}>Loading Data...</Text>
             </View>
         );
     }
@@ -186,27 +193,28 @@ const NewOrderScreen = () => {
                                     value={item.quantity}
                                     onChangeText={(value) => handleItemChange(index, 'quantity', value)}
                                     keyboardType="numeric"
-                                    placeholder="Quantity"
+                                    placeholder="Qty"
                                     placeholderTextColor="#adb5bd"
                                 />
                             </View>
                             <View style={styles.itemFooter}>
-                                <Text style={styles.priceText}>Price/Item: <Text style={styles.priceValue}>₹{item.totalPrice.toFixed(2)}</Text></Text>
+                                <Text style={styles.priceText}>Total: <Text style={styles.priceValue}>₹{item.totalPrice.toFixed(2)}</Text></Text>
                                 <TouchableOpacity onPress={() => removeItem(index)}>
-                                    <MaterialCommunityIcons name="delete" size={styles.iconSize} color="#dc3545" />
+                                    <MaterialCommunityIcons name="delete-outline" size={styles.iconSize} color="#dc3545" />
                                 </TouchableOpacity>
                             </View>
                         </View>
                     ))}
 
                     <TouchableOpacity style={styles.addItemButton} onPress={addItem}>
-                        <Text style={styles.addItemText}>+ Add Item</Text>
+                        <MaterialCommunityIcons name="plus" size={styles.addItemIconSize} color="#4285F4" />
+                        <Text style={styles.addItemText}>Add Item</Text>
                     </TouchableOpacity>
                 </View>
             </ScrollView>
             <View style={styles.footer}>
                 <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                    <Text style={styles.saveButtonText}>Save Order</Text>
+                    <Text style={styles.saveButtonText}>Create Order</Text>
                 </TouchableOpacity>
             </View>
         </View>
@@ -342,19 +350,23 @@ const getStyles = (width) => {
         },
         iconSize: responsiveSize(22),
         addItemButton: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
             borderWidth: 1.5,
             borderColor: '#4285F4',
             borderStyle: 'dashed',
             borderRadius: responsiveSize(10),
             padding: responsiveSize(15),
-            alignItems: 'center',
             marginTop: responsiveSize(10),
         },
         addItemText: {
             color: '#4285F4',
             fontSize: responsiveSize(16),
             fontWeight: 'bold',
+            marginLeft: responsiveSize(10),
         },
+        addItemIconSize: responsiveSize(20),
         footer: {
             position: 'absolute',
             bottom: 0,

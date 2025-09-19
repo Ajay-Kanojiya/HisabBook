@@ -32,7 +32,7 @@ const ClothTypesScreen = () => {
             if (user) {
                 fetchClothTypes();
             }
-        }, [user])
+        }, [])
     );
 
     const handleDelete = (id) => {
