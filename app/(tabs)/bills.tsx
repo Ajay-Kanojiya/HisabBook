@@ -27,7 +27,7 @@ const BillsScreen = () => {
     const { width } = useWindowDimensions();
     const styles = getStyles(width);
 
-    const PAGINATION_SIZE = 10;
+    const PAGINATION_SIZE = 20;
 
     const fetchCustomers = async () => {
         if (!user) return;
@@ -305,9 +305,8 @@ const BillsScreen = () => {
                             style={styles.statusPicker}
                             itemStyle={styles.pickerItem}
                         >
-                            <Picker.Item label="Pending" value="Pending" />
-                            <Picker.Item label="Paid" value="Paid" />
                             <Picker.Item label="Unpaid" value="Unpaid" />
+                            <Picker.Item label="Paid" value="Paid" />
                         </Picker>
                     </View>
                     <View style={styles.actionsContainer}>
@@ -356,9 +355,8 @@ const BillsScreen = () => {
                         itemStyle={styles.pickerItem}
                     >
                         <Picker.Item label="All Statuses" value="All" />
-                        <Picker.Item label="Pending" value="Pending" />
-                        <Picker.Item label="Paid" value="Paid" />
                         <Picker.Item label="Unpaid" value="Unpaid" />
+                        <Picker.Item label="Paid" value="Paid" />
                     </Picker>
                 </View>
             </View>
@@ -404,27 +402,29 @@ const getStyles = (width) => {
         },
         headerTitle: { fontSize: responsiveSize(20), fontWeight: 'bold', color: '#333' },
         filtersContainer: { 
-            flexDirection: isSmallScreen ? 'column' : 'row', 
+            flexDirection: 'row', 
             padding: responsiveSize(10),
             backgroundColor: '#ffffff', 
             borderBottomWidth: 1, 
             borderBottomColor: '#dee2e6',
+            alignItems: 'center',
         },
         pickerContainer: { 
-            flex: isSmallScreen ? 0 : 1,
+            flex: 1,
             borderWidth: 1, 
             borderColor: '#ced4da', 
             borderRadius: 8, 
-            margin: isSmallScreen ? 5 : 0,
-            marginHorizontal: isSmallScreen ? 10 : 5,
+            marginHorizontal: 5,
             justifyContent: 'center',
+            height: responsiveSize(50),
         },
         picker: { 
-            height: responsiveSize(45), 
+            height: responsiveSize(50), 
             width: '100%',
         },
         pickerItem: {
-             color: '#000000'
+             color: '#000000',
+             fontSize: responsiveSize(14),
         },
         listContainer: { paddingBottom: 80, paddingHorizontal: responsiveSize(10) },
         itemContainer: { 
@@ -448,26 +448,26 @@ const getStyles = (width) => {
         itemTotal: { fontSize: responsiveSize(16), fontWeight: 'bold', color: '#343a40' },
         itemDate: { fontSize: responsiveSize(12), color: '#6c757d', marginTop: 4 },
         itemFooter: { 
-            flexDirection: isSmallScreen ? 'column' : 'row', 
+            flexDirection: 'row', 
             justifyContent: 'space-between', 
             alignItems: 'center', 
             marginTop: responsiveSize(10) 
         },
         statusPickerContainer: {
-            width: isSmallScreen ? '100%' : '50%',
+            width: 'auto',
+            minWidth: 150,
             borderWidth: 1,
             borderColor: '#ced4da',
             borderRadius: 8,
             justifyContent: 'center',
             height: responsiveSize(40),
-            marginBottom: isSmallScreen ? 10 : 0,
         },
         statusPicker: { 
             width: '100%',
             height: responsiveSize(40),
         },
         actionsContainer: { 
-            width: isSmallScreen ? '100%' : '50%',
+            flex: 1,
             flexDirection: 'row', 
             alignItems: 'center', 
             justifyContent: 'flex-end' 
