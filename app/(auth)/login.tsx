@@ -1,10 +1,10 @@
 
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Image } from 'react-native';
-import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/config/firebase';
-import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { useState } from 'react';
+import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const LoginScreen = () => {
     const [email, setEmail] = useState('');
@@ -41,9 +41,7 @@ const LoginScreen = () => {
     return (
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.container}>
             <View style={styles.logoContainer}>
-                <Image source={require('@/assets/images/icon.png')} style={styles.logo} />
-                <Text style={styles.title}>Welcome Back!</Text>
-                <Text style={styles.subtitle}>Sign in to continue</Text>
+                <Image source={require('@/assets/images/sign_in_1.png')} style={styles.logo} />
             </View>
 
             <View style={styles.formContainer}>
@@ -105,11 +103,11 @@ const styles = StyleSheet.create({
     },
     logoContainer: {
         alignItems: 'center',
-        marginBottom: 30,
+        marginBottom: -40, // Reduced from 30
     },
     logo: {
-        width: 80,
-        height: 80,
+        width: 200,
+        height: 200,
         resizeMode: 'contain',
     },
     title: {

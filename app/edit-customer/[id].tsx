@@ -38,8 +38,8 @@ const EditCustomerScreen = () => {
     useFocusEffect(fetchCustomer);
 
     const handleUpdate = async () => {
-        if (!name || !address || !phone) {
-            Alert.alert('Error', 'Please fill in all fields.');
+        if (!name) {
+            Alert.alert('Error', 'Please fill in the customer name.');
             return;
         }
         if (!user) {
@@ -114,7 +114,7 @@ const EditCustomerScreen = () => {
                     value={name}
                     onChangeText={setName}
                 />
-                <Text style={styles.label}>Address</Text>
+                <Text style={styles.label}>Address (Optional)</Text>
                 <TextInput
                     style={styles.input}
                     placeholder="Enter customer\'s address"
@@ -122,7 +122,7 @@ const EditCustomerScreen = () => {
                     value={address}
                     onChangeText={setAddress}
                 />
-                <Text style={styles.label}>Phone</Text>
+                <Text style={styles.label}>Phone (Optional)</Text>
                 <TextInput
                     style={styles.input}
                     placeholder="Enter customer\'s phone number"

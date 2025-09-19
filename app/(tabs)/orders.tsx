@@ -87,8 +87,8 @@ const OrdersScreen = () => {
 
     const filteredOrders = useMemo(() => {
         return orders.filter(order =>
-            order.customerName.toLowerCase().includes(search.toLowerCase()) ||
-            order.id.toLowerCase().includes(search.toLowerCase())
+            (order.customerName?.toLowerCase() || '').includes(search.toLowerCase()) ||
+            (order.id?.toLowerCase() || '').includes(search.toLowerCase())
         );
     }, [orders, search]);
 
@@ -101,10 +101,10 @@ const OrdersScreen = () => {
                     </View>
                     <View style={styles.itemInfo}>
                         <Text style={styles.itemName}>{item.customerName}</Text>
-                        <Text style={styles.itemSubtitle}>Order #{item.id.substring(0, 6)} · {item.items.length} items</Text>
+                        <Text style={styles.itemSubtitle}>Order #{item.id ? item.id.substring(0, 6) : ''} · {item.items ? item.items.length : 0} items</Text>
                     </View>
                     <View style={styles.itemRight}>
-                        <Text style={styles.itemTotal}>₹{item.total.toFixed(2)}</Text>
+                        <Text style={styles.itemTotal}>₹{item.total ? item.total.toFixed(2) : '0.00'}</Text>
                         <Text style={styles.itemDate}>{formatDate(item.lastModified)}</Text>
                     </View>
                 </View>
@@ -123,7 +123,11 @@ const OrdersScreen = () => {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
+                 <TouchableOpacity onPress={() => router.push('/(tabs)/home')}>
+                    <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
+                </TouchableOpacity>
                 <Text style={styles.headerTitle}>Orders</Text>
+                <View style={{width: 24}}/>
             </View>
 
             <View style={styles.controlsContainer}>
@@ -168,11 +172,15 @@ const getStyles = (width) => {
             backgroundColor: '#ffffff',
         },
         header: {
-            paddingTop: responsiveSize(60),
-            paddingBottom: responsiveSize(20),
-            paddingHorizontal: responsiveSize(20),
-            backgroundColor: '#ffffff',
-            alignItems: 'center',
+            flexDirection: 'row', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            paddingTop: responsiveSize(50), 
+            paddingBottom: responsiveSize(15), 
+            paddingHorizontal: responsiveSize(20), 
+            backgroundColor: '#ffffff', 
+            borderBottomWidth: 1, 
+            borderBottomColor: '#dee2e6' 
         },
         headerTitle: {
             fontSize: responsiveSize(24),

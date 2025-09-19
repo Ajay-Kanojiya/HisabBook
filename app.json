@@ -4,7 +4,7 @@
     "slug": "hisabbook",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/icon-new.png",
     "scheme": "hisabbook",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -13,11 +13,7 @@
       "bundleIdentifier": "com.anonymous.hisabbook"
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#FFFFFF",
-        "foregroundImage": "./assets/images/icon.png",
-        "monochromeImage": "./assets/images/icon.png"
-      },
+      "icon": "./assets/images/icon-new.png",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.hisabbook"

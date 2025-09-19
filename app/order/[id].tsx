@@ -14,54 +14,54 @@ const OrderDetailsScreen = () => {
     const { width } = useWindowDimensions();
     const styles = getStyles(width);
 
-    const fetchOrderDetails = async () => {
-        setLoading(true);
-        try {
-            const orderRef = doc(db, 'orders', id as string);
-            const orderSnap = await getDoc(orderRef);
-
-            if (orderSnap.exists()) {
-                const orderData = orderSnap.data();
-
-                if (orderData.customerId) {
-                    const customerRef = doc(db, "customers", orderData.customerId);
-                    const customerSnap = await getDoc(customerRef);
-                    if (customerSnap.exists()) {
-                        setCustomer(customerSnap.data());
-                    }
-                }
-
-                const itemsWithClothTypeNames = await Promise.all(orderData.items.map(async (item) => {
-                    if (item.clothTypeId) {
-                        const clothTypeRef = doc(db, "cloth-types", item.clothTypeId);
-                        const clothTypeSnap = await getDoc(clothTypeRef);
-                        if (clothTypeSnap.exists()) {
-                            const clothTypeData = clothTypeSnap.data();
-                            return { 
-                                ...item, 
-                                clothTypeName: clothTypeData.name
-                            };
-                        }
-                    }
-                    return item;
-                }));
-
-                setOrder({ ...orderData, id: orderSnap.id, items: itemsWithClothTypeNames });
-
-            } else {
-                Alert.alert("Error", "Order not found.");
-                router.back();
-            }
-        } catch (error) {
-            console.error("Error fetching order details: ", error);
-            Alert.alert("Error", "Could not fetch order details.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
     useFocusEffect(
         useCallback(() => {
+            const fetchOrderDetails = async () => {
+                setLoading(true);
+                try {
+                    const orderRef = doc(db, 'orders', id as string);
+                    const orderSnap = await getDoc(orderRef);
+
+                    if (orderSnap.exists()) {
+                        const orderData = orderSnap.data();
+
+                        if (orderData.customerId) {
+                            const customerRef = doc(db, "customers", orderData.customerId);
+                            const customerSnap = await getDoc(customerRef);
+                            if (customerSnap.exists()) {
+                                setCustomer(customerSnap.data());
+                            }
+                        }
+
+                        const itemsWithClothTypeNames = await Promise.all(orderData.items.map(async (item) => {
+                            if (item.clothTypeId) {
+                                const clothTypeRef = doc(db, "cloth-types", item.clothTypeId);
+                                const clothTypeSnap = await getDoc(clothTypeRef);
+                                if (clothTypeSnap.exists()) {
+                                    const clothTypeData = clothTypeSnap.data();
+                                    return { 
+                                        ...item, 
+                                        clothTypeName: clothTypeData.name
+                                    };
+                                }
+                            }
+                            return item;
+                        }));
+
+                        setOrder({ ...orderData, id: orderSnap.id, items: itemsWithClothTypeNames });
+
+                    } else {
+                        Alert.alert("Error", "Order not found.");
+                        router.push('/(tabs)/orders');
+                    }
+                } catch (error) {
+                    console.error("Error fetching order details: ", error);
+                    Alert.alert("Error", "Could not fetch order details.");
+                } finally {
+                    setLoading(false);
+                }
+            };
+
             if (id) {
                 fetchOrderDetails();
             }
@@ -107,7 +107,7 @@ const OrderDetailsScreen = () => {
     return (
         <ScrollView style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()}>
+                <TouchableOpacity onPress={() => router.push('/(tabs)/orders')}>
                     <MaterialCommunityIcons name="arrow-left" size={styles.headerIconSize} color="black" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Order #{order.id.substring(0, 5)}</Text>

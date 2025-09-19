@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import {
     View, Text, StyleSheet, FlatList, TouchableOpacity, Alert,
@@ -26,26 +25,24 @@ const BillsScreen = () => {
     const { width } = useWindowDimensions();
     const styles = getStyles(width);
 
-    const fetchData = useCallback(async (isMounted) => {
+    const fetchData = useCallback(async () => {
         if (!user) return;
         setLoading(true);
         try {
             // Fetch Shop Details
-            const shopsRef = collection(db, 'shops');
-            const qShops = query(shopsRef, where("userEmail", "==", user.email));
-            const shopsSnap = await getDocs(qShops);
-            if (isMounted && !shopsSnap.empty) {
-                setShop(shopsSnap.docs[0].data());
+            const usersRef = collection(db, 'users');
+            const q = query(usersRef, where("email", "==", user.email));
+            const usersSnap = await getDocs(q);
+            if (!usersSnap.empty) {
+                setShop(usersSnap.docs[0].data());
             }
 
             // Fetch Customers
             const customersCollection = collection(db, 'customers');
             const qCustomers = query(customersCollection, where("userEmail", "==", user.email));
             const customersSnapshot = await getDocs(qCustomers);
-            if (isMounted) {
-                const customersList = customersSnapshot.docs.map(d => ({ ...d.data(), id: d.id }));
-                setCustomers(customersList);
-            }
+            const customersList = customersSnapshot.docs.map(d => ({ ...d.data(), id: d.id }));
+            setCustomers(customersList);
 
             // Fetch Bills
             let billsQuery = query(
@@ -61,52 +58,40 @@ const BillsScreen = () => {
             }
             const billsSnapshot = await getDocs(billsQuery);
 
-            if (isMounted) {
-                if (!billsSnapshot.empty) {
-                    const billsList = await Promise.all(billsSnapshot.docs.map(async (billDoc) => {
-                        const billData = billDoc.data();
-                        const customerRef = doc(db, "customers", billData.customerId);
-                        const customerSnap = await getDoc(customerRef);
-                        const customerName = customerSnap.exists() ? customerSnap.data().name : 'N/A';
-                        return {
-                            ...billData,
-                            id: billDoc.id,
-                            customerName,
-                            date: billData.createdAt.toDate(),
-                        };
-                    }));
-                    setBills(billsList);
-                } else {
-                    setBills([]);
-                }
+            if (!billsSnapshot.empty) {
+                const billsList = await Promise.all(billsSnapshot.docs.map(async (billDoc) => {
+                    const billData = billDoc.data();
+                    const customerRef = doc(db, "customers", billData.customerId);
+                    const customerSnap = await getDoc(customerRef);
+                    const customerName = customerSnap.exists() ? customerSnap.data().name : 'N/A';
+                    return {
+                        ...billData,
+                        id: billDoc.id,
+                        customerName,
+                        date: billData.createdAt.toDate(),
+                    };
+                }));
+                setBills(billsList);
+            } else {
+                setBills([]);
             }
         } catch (error) {
             console.error("Error fetching data: ", error);
-            if(isMounted) Alert.alert("Error", "Could not fetch data.");
+            Alert.alert("Error", "Could not fetch data.");
         } finally {
-            if (isMounted) setLoading(false);
+            setLoading(false);
         }
     }, [user, selectedCustomer, selectedStatus]);
 
     useFocusEffect(
         useCallback(() => {
-            let isMounted = true;
-            fetchData(isMounted);
-            return () => {
-                isMounted = false;
-            };
+            fetchData();
         }, [fetchData])
     );
 
     const onRefresh = useCallback(() => {
-        let isMounted = true;
         setRefreshing(true);
-        fetchData(isMounted).then(() => {
-            if(isMounted) setRefreshing(false)
-        });
-         return () => {
-            isMounted = false;
-        };
+        fetchData().then(() => setRefreshing(false));
     }, [fetchData]);
 
     const numberToWords = (num) => {
@@ -148,20 +133,21 @@ const BillsScreen = () => {
             <head>
                 <style>
                     body { font-family: Arial, sans-serif; color: #333; }
-                    .invoice-box { max-width: 800px; margin: auto; padding: 30px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0, 0, 0, 0.15); }
-                    .header, .footer { display: flex; justify-content: space-between; align-items: flex-start; }
-                    .company-details { text-align: left; }
-                    .company-name { font-size: 28px; font-weight: bold; color: #E74C3C; margin-bottom: 5px; }
-                    .invoice-details { text-align: right; }
-                    .invoice-title { font-size: 28px; font-weight: bold; color: #E74C3C; }
-                    .customer-info { margin-top: 30px; text-align: center; }
-                    .info-line { display: flex; margin-bottom: 10px; }
-                    .info-label { font-weight: bold; }
-                    .info-value { border-bottom: 1px dotted #aaa; flex-grow: 1; margin-left: 10px; }
-                    .item-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                    .item-table th, .item-table td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-                    .item-table th { background-color: #f2f2f2; }
-                    .footer { margin-top: 20px; border-top: 1px solid #ddd; padding-top: 10px;}
+                    .invoice-box { max-width: 800px; margin: auto; padding: 30px; }
+                    .header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .company-details { text-align: left; }
+        .company-name { font-size: 28px; font-weight: bold; color: #E74C3C; margin-bottom: 5px; }
+        .slogan { margin-bottom: 10px; }
+        .invoice-details { text-align: right; }
+        .invoice-title { font-size: 28px; font-weight: bold; color: #E74C3C; margin-bottom: 10px;}
+        .customer-info { margin-top: 30px; text-align: left; }
+        .info-line { display: flex; margin-bottom: 10px; align-items: center; }
+        .info-label { font-weight: bold; width: 120px; }
+        .info-value { flex-grow: 1; }
+        .item-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .item-table th, .item-table td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        .item-table th { background-color: #f2f2f2; }
+        .footer { display: flex; justify-content: space-between; align-items: flex-start; margin-top: 20px; border-top: 1px solid #ddd; padding-top: 10px;}
                 </style>
             </head>
             <body>
@@ -169,9 +155,10 @@ const BillsScreen = () => {
                     <div class="header">
                         <div class="company-details">
                             <div class="company-name">${shop.shopName ?? 'Your Company'}</div>
-                            <div>${shop.address ?? 'Address'}</div>
-                            <div>${shop.mobile ?? 'Mobile'}</div>
-                            <div>${shop.email ?? 'Email'}</div>
+                            <div class="slogan">Your Slogan</div>
+            <div><p>&#127968; ${shop.address ?? '-'}</p></div>
+            <div><p>&#128241; ${shop.mobile ?? '-'}</p></div>
+            <div><p>&#128231; ${shop.email ?? '-'}</p></div>
                         </div>
                         <div class="invoice-details">
                             <div class="invoice-title">INVOICE</div>
@@ -180,33 +167,55 @@ const BillsScreen = () => {
                         </div>
                     </div>
                     <div class="customer-info">
-                        <div class="info-line"><span class="info-label">Name:</span><span class="info-value">${customer?.name || 'N/A'}</span></div>
-                        <div class="info-line"><span class="info-label">Address:</span><span class="info-value">${customer?.address || 'N/A'}</span></div>
-                        <div class="info-line"><span class="info-label">Phone:</span><span class="info-value">${customer?.phone || 'N/A'}</span></div>
-                    </div>
-                    <table class="item-table">
-                        <thead>
-                            <tr><th>Sl.No.</th><th>Description</th><th>Qty.</th><th>Rate (₹)</th><th>Amount (₹)</th></tr>
-                        </thead>
-                        <tbody>${itemsHtml}</tbody>
-                    </table>
-                    <div class="footer">
-                        <div style="flex: 1; margin-right: 10px;"><strong>In words:</strong> ${numberToWords(bill.total)}</div>
-                        <div style="text-align: right;"><strong>Total:</strong> ₹${(bill.total || 0).toFixed(2)}</div>
-                    </div>
+        <div class="info-line">
+            <span class="info-label">Name:</span>
+            <span class="info-value">${customer.name}</span>
+        </div>
+        <div class="info-line">
+            <span class="info-label">Address:</span>
+            <span class="info-value">${customer.address || 'N/A'}</span>
+        </div>
+        <div class="info-line">
+            <span class="info-label">Phone Number:</span>
+            <span class="info-value">${customer.phone || 'N/A'}</span>
+        </div>
+    </div>
+    <table class="item-table">
+        <thead>
+            <tr>
+                <th>Sl.No.</th>
+                <th>Description</th>
+                <th>Qty.</th>
+                <th>Rate (₹)</th>
+                <th>Amount (₹)</th>
+            </tr>
+        </thead>
+                    <tbody>${itemsHtml}</tbody>
+                </table>
+                <div class="footer">
+        <div style="flex: 1; margin-right: 10px;"><strong>Rupees in words:</strong> ${numberToWords(bill.total)}</div>
+        <div style="text-align: right;">
+            <strong>Total:</strong> ₹${(bill.total || 0).toFixed(2)}
+        </div>
+    </div>
                 </div>
             </body>
             </html>`;
     
-            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
             const date = new Date(bill.date);
             const month = monthNames[date.getMonth()];
             const year = date.getFullYear();
 
             const safeCustomerName = customer?.name.replace(/[^a-z0-9]/gi, '_') || 'customer';
-            const fileName = `${safeCustomerName}-${bill.id.substring(0,5)}-${month}${year}.pdf`;
+            const fileName = `${safeCustomerName}_invoice_${bill.id.substring(0,5)}_${month}${year}.pdf`;
             
-            const { uri } = await printToFileAsync({ html: htmlContent, base64: false });
+            const { uri } = await printToFileAsync({ 
+                html: htmlContent, 
+                base64: false,
+                width: 595, // A4 width in points
+                height: 842, // A4 height in points
+            });
             
             if (Platform.OS === "ios") {
                 await shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf', dialogTitle: fileName });
@@ -243,9 +252,7 @@ const BillsScreen = () => {
                     onPress: async () => {
                         try {
                             await deleteDoc(doc(db, "bills", billId));
-                            let isMounted = true;
-                            fetchData(isMounted); // Refetch bills after deletion
-                            return () => { isMounted = false; };
+                            fetchData(); // Refetch bills after deletion
                         } catch (error) {
                             console.error("Error deleting bill: ", error);
                             Alert.alert("Error", "Could not delete bill.");
@@ -300,7 +307,7 @@ const BillsScreen = () => {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()}>
+                <TouchableOpacity onPress={() => router.push('/(tabs)/home')}>
                     <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Bills</Text>

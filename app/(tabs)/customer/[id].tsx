@@ -27,7 +27,7 @@ const CustomerDetailScreen = () => {
                     setPhone(customerData.phone);
                 } else {
                     Alert.alert('Error', 'Customer not found.');
-                    router.back();
+                    router.push('/(tabs)/customers');
                 }
             };
             fetchCustomer();
@@ -63,7 +63,7 @@ const CustomerDetailScreen = () => {
                     onPress: async () => {
                         try {
                             await deleteDoc(doc(db, 'customers', id as string));
-                            router.back();
+                            router.push('/(tabs)/customers');
                         } catch (error) {
                             console.error('Error deleting customer: ', error);
                             Alert.alert('Error', 'There was an error deleting the customer.');
@@ -81,7 +81,7 @@ const CustomerDetailScreen = () => {
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                 <TouchableOpacity onPress={() => router.push('/(tabs)/customers')} style={styles.backButton}>
                     <MaterialCommunityIcons name="arrow-left" size={24} color="#007bff" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Customer Details</Text>

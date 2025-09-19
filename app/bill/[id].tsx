@@ -1,12 +1,19 @@
-import React, { useState, useCallback } from 'react';
-import {
-    View, Text, StyleSheet, Alert, TouchableOpacity, useWindowDimensions, ScrollView, ActivityIndicator
-} from 'react-native';
-import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { printToFileAsync } from 'expo-print';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { shareAsync } from 'expo-sharing';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import React, { useCallback, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity, useWindowDimensions,
+    View
+} from 'react-native';
 
 const BillDetailsScreen = () => {
     const { id } = useLocalSearchParams();
@@ -72,7 +79,7 @@ const BillDetailsScreen = () => {
             } else {
                 setBill(null);
                 Alert.alert("Error", "Bill not found.");
-                router.back();
+                router.push('/(tabs)/bills');
             }
         } catch (error) {
             console.error("Error fetching bill details: ", error);
@@ -105,80 +112,78 @@ const BillDetailsScreen = () => {
         `).join('');
 
         const htmlContent = `
-<html>
-<head>
-    <style>
-        body { font-family: Arial, sans-serif; color: #333; }
-        .invoice-box { max-width: 800px; margin: auto; padding: 30px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0, 0, 0, 0.15); }
-        .header { display: flex; justify-content: space-between; align-items: flex-start; }
-        .company-details { text-align: left; }
-        .company-name { font-size: 28px; font-weight: bold; color: #E74C3C; margin-bottom: 5px; }
-        .slogan { margin-bottom: 10px; }
-        .invoice-details { text-align: right; }
-        .invoice-title { font-size: 28px; font-weight: bold; color: #E74C3C; margin-bottom: 10px;}
-        .customer-info { margin-top: 30px; text-align: left; }
-        .info-line { display: flex; margin-bottom: 10px; }
-        .info-label { font-weight: bold; width: 120px; }
-        .info-value { flex-grow: 1; }
-        .item-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        .item-table th, .item-table td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-        .item-table th { background-color: #f2f2f2; }
-        .footer { display: flex; justify-content: space-between; align-items: flex-start; margin-top: 20px; border-top: 1px solid #ddd; padding-top: 10px;}
-    </style>
-</head>
-<body>
-    <div class="invoice-box">
-        <div class="header">
-            <div class="company-details">
-                <div class="company-name">${shop.shopName ?? '-'}</div>
-                <div class="slogan">Your Slogan</div>
-                <div>${shop.address ?? '-'}</div>
-                <div>${shop.mobile ?? '-'}</div>
-                <div>${shop.email ?? '-'}</div>
-            </div>
-            <div class="invoice-details">
-                <div class="invoice-title">INVOICE</div>
-                <div><strong>Invoice No. :</strong> #${bill.id.substring(0, 5)}</div>
-                <div><strong>Invoice Date :</strong> ${bill.date.toLocaleDateString()}</div>
-            </div>
-        </div>
-        <div class="customer-info">
-            <div class="info-line">
-                <span class="info-label">Name:</span>
-                <span class="info-value">${customer.name}</span>
-            </div>
-            <div class="info-line">
-                <span class="info-label">Address:</span>
-                <span class="info-value">${customer.address || 'N/A'}</span>
-            </div>
-            <div class="info-line">
-                <span class="info-label">Phone Number:</span>
-                <span class="info-value">${customer.phone || 'N/A'}</span>
-            </div>
-        </div>
-        <table class="item-table">
-            <thead>
-                <tr>
-                    <th>Sl.No.</th>
-                    <th>Description</th>
-                    <th>Qty.</th>
-                    <th>Rate (₹)</th>
-                    <th>Amount (₹)</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${itemsHtml}
-            </tbody>
-        </table>
-        <div class="footer">
-            <div style="flex: 1; margin-right: 10px;"><strong>Rupees in words:</strong> ${numberToWords(bill.total)}</div>
-            <div style="text-align: right;">
-                <strong>Total:</strong> ₹${(bill.total || 0).toFixed(2)}
-            </div>
-        </div>
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; color: #333; }
+                .invoice-box { max-width: 800px; margin: auto; padding: 30px; }
+                .header { display: flex; justify-content: space-between; align-items: flex-start; }
+    .company-details { text-align: left; }
+    .company-name { font-size: 28px; font-weight: bold; color: #E74C3C; margin-bottom: 5px; }
+    .slogan { margin-bottom: 10px; }
+    .invoice-details { text-align: right; }
+    .invoice-title { font-size: 28px; font-weight: bold; color: #E74C3C; margin-bottom: 10px;}
+    .customer-info { margin-top: 30px; text-align: left; }
+    .info-line { display: flex; margin-bottom: 10px; align-items: center; }
+    .info-label { font-weight: bold; width: 120px; }
+    .info-value { flex-grow: 1; }
+    .item-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    .item-table th, .item-table td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+    .item-table th { background-color: #f2f2f2; }
+    .footer { display: flex; justify-content: space-between; align-items: flex-start; margin-top: 20px; border-top: 1px solid #ddd; padding-top: 10px;}
+            </style>
+        </head>
+        <body>
+            <div class="invoice-box">
+                <div class="header">
+                    <div class="company-details">
+                        <div class="company-name">${shop.shopName ?? 'Your Company'}</div>
+                        <div class="slogan">Your Slogan</div>
+        <div><p>&#127968; ${shop.address ?? '-'}</p></div>
+        <div><p>&#128241; ${shop.mobile ?? '-'}</p></div>
+        <div><p>&#128231; ${shop.email ?? '-'}</p></div>
+                    </div>
+                    <div class="invoice-details">
+                        <div class="invoice-title">INVOICE</div>
+                        <div><strong>Invoice No. :</strong> #${bill.id.substring(0, 5)}</div>
+                        <div><strong>Invoice Date :</strong> ${bill.date.toLocaleDateString()}</div>
+                    </div>
+                </div>
+                <div class="customer-info">
+    <div class="info-line">
+        <span class="info-label">Name:</span>
+        <span class="info-value">${customer.name}</span>
     </div>
-</body>
-</html>`;
+    <div class="info-line">
+        <span class="info-label">Address:</span>
+        <span class="info-value">${customer.address || 'N/A'}</span>
+    </div>
+    <div class="info-line">
+        <span class="info-label">Phone Number:</span>
+        <span class="info-value">${customer.phone || 'N/A'}</span>
+    </div>
+</div>
+<table class="item-table">
+    <thead>
+        <tr>
+            <th>Sl.No.</th>
+            <th>Description</th>
+            <th>Qty.</th>
+            <th>Rate (₹)</th>
+            <th>Amount (₹)</th>
+        </tr>
+    </thead>
+                <tbody>${itemsHtml}</tbody>
+            </table>
+            <div class="footer">
+    <div style="flex: 1; margin-right: 10px;"><strong>Rupees in words:</strong> ${numberToWords(bill.total)}</div>
+    <div style="text-align: right;">
+        <strong>Total:</strong> ₹${(bill.total || 0).toFixed(2)}
+    </div>
+</div>
+            </div>
+        </body>
+        </html>`;
 
         try {
             const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -190,6 +195,8 @@ const BillDetailsScreen = () => {
             const { uri } = await printToFileAsync({ 
                 html: htmlContent,
                 base64: false,
+                width: 595, // A4 width in points
+                height: 842, // A4 height in points
             });
             await shareAsync(uri, { 
                 UTI: '.pdf', 
@@ -217,15 +224,31 @@ const BillDetailsScreen = () => {
 
     return (
         <View style={{flex: 1}}>
+            <View style={styles.header}>
+                <TouchableOpacity onPress={() => router.push('/(tabs)/bills')}>
+                    <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Bill Details</Text>
+                <View style={{width: 24}}/>
+            </View>
             <ScrollView style={styles.container}>
                 <View style={styles.invoiceBox}>
-                    <View style={styles.header}>
+                    <View style={styles.headerSection}>
                         <View style={styles.companyDetails}>
                             <Text style={styles.companyName}>{shop?.shopName ?? '-'}</Text>
                             <Text style={styles.slogan}>Your Slogan</Text>
-                            <Text>{shop?.address ?? '-'}</Text>
-                            <Text>{shop?.mobile ?? '-'}</Text>
-                            <Text>{shop?.email ?? '-'}</Text>
+                            <View style={styles.infoLine}>
+                                <MaterialCommunityIcons name="home-outline" size={16} color="#333" style={{marginRight: 5}}/>
+                                <Text>{shop?.address ?? '-'}</Text>
+                            </View>
+                            <View style={styles.infoLine}>
+                                <MaterialCommunityIcons name="phone-outline" size={16} color="#333" style={{marginRight: 5}}/>
+                                <Text>{shop?.mobile ?? '-'}</Text>
+                            </View>
+                            <View style={styles.infoLine}>
+                                <MaterialCommunityIcons name="email-outline" size={16} color="#333" style={{marginRight: 5}}/>
+                                <Text>{shop?.email ?? '-'}</Text>
+                            </View>
                         </View>
                         <View style={styles.invoiceDetails}>
                             <Text style={styles.invoiceTitle}>INVOICE</Text>
@@ -282,9 +305,11 @@ const BillDetailsScreen = () => {
                     </View>
                 </View>
             </ScrollView>
-            <TouchableOpacity style={styles.downloadButton} onPress={handleDownloadPdf}>
-                <Text style={styles.downloadButtonText}>Download PDF</Text>
-            </TouchableOpacity>
+            <View style={styles.downloadButtonContainer}>
+                <TouchableOpacity style={styles.downloadButton} onPress={handleDownloadPdf}>
+                    <Text style={styles.downloadButtonText}>Download PDF</Text>
+                </TouchableOpacity>
+            </View>
         </View>
     );
 };
@@ -297,8 +322,20 @@ const getStyles = (width) => {
     return StyleSheet.create({
         centered: { flexGrow: 1, justifyContent: 'center', alignItems: 'center' },
         container: { flex: 1, backgroundColor: '#ffffff' },
+        header: { 
+            flexDirection: 'row', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            paddingTop: responsiveSize(50), 
+            paddingBottom: responsiveSize(15), 
+            paddingHorizontal: responsiveSize(20), 
+            backgroundColor: '#ffffff', 
+            borderBottomWidth: 1, 
+            borderBottomColor: '#dee2e6' 
+        },
+        headerTitle: { fontSize: responsiveSize(20), fontWeight: 'bold', color: '#333' },
         invoiceBox: { padding: responsiveSize(20), flex: 1 },
-        header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: responsiveSize(20) },
+        headerSection: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: responsiveSize(20) },
         companyDetails: { flex: 1 },
         companyName: { fontSize: responsiveSize(28), fontWeight: 'bold', color: '#E74C3C', marginBottom: responsiveSize(5) },
         slogan: { marginBottom: responsiveSize(10), fontStyle: 'italic' },
@@ -313,7 +350,18 @@ const getStyles = (width) => {
         headerText: { fontWeight: 'bold' },
         tableRow: { flexDirection: 'row', paddingVertical: responsiveSize(5), borderBottomWidth: 1, borderBottomColor: '#eee'},
         footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', borderTopWidth: 1, borderTopColor: '#000', paddingTop: responsiveSize(10), marginTop: responsiveSize(10) },
-        downloadButton: { backgroundColor: '#007bff', padding: responsiveSize(15), alignItems: 'center', justifyContent: 'center', margin: responsiveSize(20), borderRadius: responsiveSize(10) },
+        downloadButtonContainer: { 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            paddingVertical: responsiveSize(20)
+        },
+        downloadButton: { 
+            backgroundColor: '#007bff', 
+            padding: responsiveSize(15), 
+            borderRadius: responsiveSize(10), 
+            width: '80%', 
+            alignItems: 'center' 
+        },
         downloadButtonText: { color: 'white', fontSize: responsiveSize(18), fontWeight: 'bold' },
     });
 }
