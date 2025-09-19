@@ -3,10 +3,11 @@ import {
     View, Text, StyleSheet, Alert, TouchableOpacity, useWindowDimensions, ScrollView, ActivityIndicator
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, where, addDoc } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 import { printToFileAsync } from 'expo-print';
 import { shareAsync } from 'expo-sharing';
+import { getOrCreateShop } from '@/utils/shop';
 
 const BillDetailsScreen = () => {
     const { id } = useLocalSearchParams();
@@ -39,16 +40,8 @@ const BillDetailsScreen = () => {
         try {
             const user = auth.currentUser;
             if (user) {
-                const shopsRef = collection(db, 'shops');
-                const q = query(shopsRef, where("userEmail", "==", user.email));
-                const shopsSnap = await getDocs(q);
-                if (!shopsSnap.empty) {
-                    // Assuming there is only one shop document per user or a general shop
-                    const shopDoc = shopsSnap.docs[0];
-                    setShop(shopDoc.data());
-                } else {
-                    Alert.alert("Error", "Shop details could not be found.");
-                }
+                const shopData = await getOrCreateShop(user);
+                setShop(shopData);
             }
 
             const billRef = doc(db, 'bills', id as string);
@@ -221,8 +214,8 @@ const BillDetailsScreen = () => {
                         </View>
                         <View style={styles.invoiceDetails}>
                             <Text style={styles.invoiceTitle}>INVOICE</Text>
-                            <Text>Invoice No. : #{bill.id.substring(0, 5)}</Text>
-                            <Text>Invoice Date : {bill.date.toLocaleDateString()}</Text>
+                            <Text>Invoice No. : #{bill?.id.substring(0, 5)}</Text>
+                            <Text>Invoice Date : {bill?.date.toLocaleDateString()}</Text>
                         </View>
                     </View>
 
@@ -263,12 +256,12 @@ const BillDetailsScreen = () => {
                     <View style={styles.footer}>
                         <View style={{flex: 1, marginRight: 10, flexDirection: 'row', flexWrap: 'wrap' }}>
                             <Text style={{fontWeight: 'bold'}}>Rupees in words: </Text>
-                            <Text>{numberToWords(bill.total)}</Text>
+                            <Text>{numberToWords(bill?.total)}</Text>
                         </View>
                         <View style={{alignItems: 'flex-end'}}>
                             <View style={{flexDirection: 'row'}}>
                                 <Text style={{fontWeight: 'bold'}}>Total: </Text>
-                                <Text>₹{(bill.total || 0).toFixed(2)}</Text>
+                                <Text>₹{(bill?.total || 0).toFixed(2)}</Text>
                             </View>
                         </View>
                     </View>
@@ -305,7 +298,7 @@ const getStyles = (width) => {
         headerText: { fontWeight: 'bold' },
         tableRow: { flexDirection: 'row', paddingVertical: responsiveSize(5), borderBottomWidth: 1, borderBottomColor: '#eee'},
         footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', borderTopWidth: 1, borderTopColor: '#000', paddingTop: responsiveSize(10), marginTop: responsiveSize(10) },
-        downloadButton: { backgroundColor: '#007bff', padding: responsiveSize(15), alignItems: 'center', justifyContent: 'center', margin: responsive.size(20), borderRadius: responsiveSize(10) },
+        downloadButton: { backgroundColor: '#007bff', padding: responsiveSize(15), alignItems: 'center', justifyContent: 'center', margin: responsiveSize(20), borderRadius: responsiveSize(10) },
         downloadButtonText: { color: 'white', fontSize: responsiveSize(18), fontWeight: 'bold' },
     });
 }

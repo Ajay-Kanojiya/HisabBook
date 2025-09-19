@@ -1,16 +1,16 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, FlatList, TouchableOpacity, Alert,
     useWindowDimensions, ActivityIndicator
 } from 'react-native';
-import { collection, getDocs, query, where, doc, orderBy, getDoc, updateDoc, limit, startAfter, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, orderBy, getDoc, updateDoc, limit, startAfter, addDoc } from 'firebase/firestore';
 import { db, auth } from '@/config/firebase';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { printToFileAsync } from 'expo-print';
 import { shareAsync } from 'expo-sharing';
+import { getOrCreateShop } from '@/utils/shop';
 
 const BillsScreen = () => {
     const [bills, setBills] = useState([]);
@@ -142,18 +142,11 @@ const BillsScreen = () => {
         try {
             let order = { items: [] };
             let customer = { name: bill.customerName, address: 'N/A', phone: 'N/A' };
-            let shop = null;
 
-            if(user){
-                const shopsRef = collection(db, 'shops');
-                const q = query(shopsRef, where("userEmail", "==", user.email));
-                const shopsSnap = await getDocs(q);
-                if (!shopsSnap.empty) {
-                    shop = shopsSnap.docs[0].data();
-                } else {
-                    Alert.alert("Error", "Shop details could not be found.");
-                    return;
-                }
+            const shop = await getOrCreateShop(user);
+            if (!shop) {
+                Alert.alert("Error", "Could not get shop details.");
+                return;
             }
 
             if (bill.orderIds && bill.orderIds.length > 0) {
@@ -265,28 +258,6 @@ const BillsScreen = () => {
         }
     };
 
-    const confirmDelete = (billId) => {
-        Alert.alert(
-            "Delete Bill",
-            "Are you sure you want to delete this bill? This cannot be undone.",
-            [
-                { text: "Cancel", style: "cancel" },
-                { text: "Delete", style: "destructive", onPress: () => handleDelete(billId) }
-            ]
-        );
-    };
-
-    const handleDelete = async (billId) => {
-        try {
-            await deleteDoc(doc(db, "bills", billId));
-            setBills(prev => prev.filter(b => b.id !== billId));
-            Alert.alert("Success", "Bill deleted successfully.");
-        } catch (error) {
-            console.error("Error deleting bill: ", error);
-            Alert.alert("Error", "Could not delete the bill.");
-        }
-    };
-    
     const renderItem = ({ item }) => {
         return (
             <View style={styles.itemContainer}>
@@ -315,9 +286,6 @@ const BillsScreen = () => {
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => handleGenerateAndDownloadPdf(item)} style={{marginLeft: 10}}>
                             <MaterialCommunityIcons name="file-pdf-box" size={styles.iconSize} color="#DC3545" />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => confirmDelete(item.id)} style={{marginLeft: 10}}>
-                            <MaterialCommunityIcons name="delete-forever" size={styles.iconSize} color="#E74C3C" />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -456,10 +424,13 @@ const getStyles = (width) => {
             borderWidth: 1,
             borderColor: '#ced4da',
             borderRadius: 8,
+            justifyContent: 'center',
+            height: responsiveSize(35),
             marginBottom: isSmallScreen ? 10 : 0,
         },
         statusPicker: {
             width: '100%',
+            height: responsiveSize(35),
         },
         actionsContainer: { 
             width: isSmallScreen ? '100%' : '50%',

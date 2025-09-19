@@ -1,14 +1,36 @@
-import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, Alert, useWindowDimensions } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, Alert, useWindowDimensions, ActivityIndicator } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { auth } from '@/config/firebase';
+import { auth, db } from '@/config/firebase';
+import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+import { getOrCreateShop } from '@/utils/shop';
 
 const ProfileScreen = () => {
     const router = useRouter();
     const user = auth.currentUser;
     const { width } = useWindowDimensions();
     const styles = getStyles(width);
+    const [shop, setShop] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    const fetchShopData = async () => {
+        if (!user) return;
+        setLoading(true);
+        try {
+            const shopData = await getOrCreateShop(user);
+            setShop(shopData);
+        } catch (error) {
+            console.error("Error fetching shop data: ", error);
+            Alert.alert("Error", "Could not fetch shop information.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useFocusEffect(useCallback(() => {
+        fetchShopData();
+    }, [user]));
 
     const handleLogout = () => {
         auth.signOut().then(() => {
@@ -17,6 +39,10 @@ const ProfileScreen = () => {
             Alert.alert('Logout Error', error.message);
         });
     };
+
+    if (loading) {
+        return <ActivityIndicator size="large" color="#007bff" style={{ flex: 1, justifyContent: 'center'}}/>
+    }
 
     return (
         <SafeAreaView style={styles.container}>
@@ -40,15 +66,15 @@ const ProfileScreen = () => {
                 <Text style={styles.sectionTitle}>Shop Information</Text>
                 <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Shop Name</Text>
-                    <Text style={styles.infoValue}>The Laundry Hub</Text>
+                    <Text style={styles.infoValue}>{shop?.shopName}</Text>
                 </View>
                  <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Shop Address</Text>
-                    <Text style={styles.infoValue}>123 Main Street, Anytown</Text>
+                    <Text style={styles.infoValue}>{shop?.address}</Text>
                 </View>
                  <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Operating Hours</Text>
-                    <Text style={styles.infoValue}>10:00 AM - 8:00 PM</Text>
+                    <Text style={styles.infoValue}>{shop?.operatingHours}</Text>
                 </View>
             </View>
 
