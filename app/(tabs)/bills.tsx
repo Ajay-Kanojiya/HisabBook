@@ -15,9 +15,6 @@ import { shareAsync } from 'expo-sharing';
 const BillsScreen = () => {
     const [bills, setBills] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [lastVisible, setLastVisible] = useState(null);
-    const [loadingMore, setLoadingMore] = useState(false);
-    const [allBillsLoaded, setAllBillsLoaded] = useState(false);
     const [customers, setCustomers] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState('All');
     const [selectedStatus, setSelectedStatus] = useState('All');
@@ -26,8 +23,6 @@ const BillsScreen = () => {
     const user = auth.currentUser;
     const { width } = useWindowDimensions();
     const styles = getStyles(width);
-
-    const PAGINATION_SIZE = 20;
 
     const fetchCustomers = async () => {
         if (!user) return;
@@ -42,18 +37,9 @@ const BillsScreen = () => {
         }
     };
 
-    const fetchBills = async (loadMore = false) => {
+    const fetchBills = async () => {
         if (!user) return;
-        if (loadingMore && allBillsLoaded) return;
-
-        if (!loadMore) {
-            setLoading(true);
-            setBills([]);
-            setLastVisible(null);
-            setAllBillsLoaded(false);
-        } else {
-            setLoadingMore(true);
-        }
+        setLoading(true);
 
         try {
             let billsQuery = query(
@@ -70,18 +56,9 @@ const BillsScreen = () => {
                 billsQuery = query(billsQuery, where("status", "==", selectedStatus));
             }
 
-            if (loadMore && lastVisible) {
-                billsQuery = query(billsQuery, startAfter(lastVisible), limit(PAGINATION_SIZE));
-            } else {
-                billsQuery = query(billsQuery, limit(PAGINATION_SIZE));
-            }
-
             const billsSnapshot = await getDocs(billsQuery);
 
             if (!billsSnapshot.empty) {
-                const newLastVisible = billsSnapshot.docs[billsSnapshot.docs.length - 1];
-                setLastVisible(newLastVisible);
-
                 const billsList = await Promise.all(billsSnapshot.docs.map(async (billDoc) => {
                     const billData = billDoc.data();
                     let customerName = 'N/A';
@@ -98,11 +75,9 @@ const BillsScreen = () => {
                     };
                 }));
                 
-                setBills(prev => loadMore ? [...prev, ...billsList] : billsList);
-                setAllBillsLoaded(billsSnapshot.docs.length < PAGINATION_SIZE);
+                setBills(billsList);
             } else {
-                if (!loadMore) setBills([]);
-                setAllBillsLoaded(true);
+                setBills([]);
             }
 
         } catch (error) {
@@ -110,7 +85,6 @@ const BillsScreen = () => {
             Alert.alert("Error", "Could not fetch bills.");
         } finally {
             setLoading(false);
-            setLoadingMore(false);
         }
     };
     
@@ -146,7 +120,7 @@ const BillsScreen = () => {
 
             if(user){
                 const shopsRef = collection(db, 'shops');
-                const q = query(shopsRef, where("userEmail", "==", user.email));
+                const q = query(shopsRef, where("email", "==", user.email));
                 const shopsSnap = await getDocs(q);
                 if (!shopsSnap.empty) {
                     shop = shopsSnap.docs[0].data();
@@ -265,30 +239,8 @@ const BillsScreen = () => {
         }
     };
 
-    const confirmDelete = (billId) => {
-        Alert.alert(
-            "Delete Bill",
-            "Are you sure you want to delete this bill? This cannot be undone.",
-            [
-                { text: "Cancel", style: "cancel" },
-                { text: "Delete", style: "destructive", onPress: () => handleDelete(billId) }
-            ]
-        );
-    };
-
-    const handleDelete = async (billId) => {
-        try {
-            await deleteDoc(doc(db, "bills", billId));
-            setBills(prev => prev.filter(b => b.id !== billId));
-            Alert.alert("Success", "Bill deleted successfully.");
-        } catch (error) {
-            console.error("Error deleting bill: ", error);
-            Alert.alert("Error", "Could not delete the bill.");
-        }
-    };
-    
     const renderItem = ({ item }) => {
-        const statusColor = item.status === 'Paid' ? styles.statusPaid : item.status === 'Unpaid' ? styles.statusUnpaid : styles.statusPending;
+        const statusColor = item.status === 'Paid' ? styles.statusPaid.color : item.status === 'Unpaid' ? styles.statusUnpaid.color : styles.statusPending.color;
 
         return (
             <View style={styles.itemContainer}>
@@ -300,11 +252,11 @@ const BillsScreen = () => {
                     <Text style={styles.itemTotal}>₹{item.total.toFixed(2)}</Text>
                 </View>
                 <View style={styles.itemFooter}>
-                    <View style={[styles.statusPickerContainer, statusColor]}>
+                    <View style={styles.statusPickerContainer}>
                         <Picker
                             selectedValue={item.status}
                             onValueChange={(itemValue) => handleStatusUpdate(item.id, itemValue)}
-                            style={styles.statusPicker}
+                            style={[styles.statusPicker, { color: statusColor }]}
                             itemStyle={styles.pickerItem}
                         >
                             <Picker.Item label="Pending" value="Pending" />
@@ -318,9 +270,6 @@ const BillsScreen = () => {
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => handleGenerateAndDownloadPdf(item)} style={{marginLeft: 10}}>
                             <MaterialCommunityIcons name="file-pdf-box" size={styles.iconSize} color="#DC3545" />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => confirmDelete(item.id)} style={{marginLeft: 10}}>
-                            <MaterialCommunityIcons name="delete-forever" size={styles.iconSize} color="#E74C3C" />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -373,9 +322,6 @@ const BillsScreen = () => {
                     renderItem={renderItem}
                     keyExtractor={item => item.id}
                     contentContainerStyle={styles.listContainer}
-                    onEndReached={() => fetchBills(true)}
-                    onEndReachedThreshold={0.5}
-                    ListFooterComponent={loadingMore ? <ActivityIndicator size="large" color="#007bff" /> : null}
                     ListEmptyComponent={<Text style={styles.emptyListText}>No bills found.</Text>}
                 />
             )}
@@ -427,7 +373,6 @@ const getStyles = (width) => {
             width: '100%',
         },
         pickerItem: {
-             color: '#000000',
              fontSize: responsiveSize(14),
         },
         listContainer: { paddingBottom: 80, paddingHorizontal: responsiveSize(10) },
@@ -458,20 +403,19 @@ const getStyles = (width) => {
             marginTop: responsiveSize(10) 
         },
         statusPickerContainer: {
-            width: 'auto',
-            minWidth: 150,
+            flex: 0.5,
+            borderWidth: 1,
+            borderColor: '#ced4da',
             borderRadius: 8,
             justifyContent: 'center',
-            height: responsiveSize(40),
-            paddingHorizontal: 10, 
+            height: responsiveSize(50),
         },
         statusPicker: { 
+            height: responsiveSize(50), 
             width: '100%',
-            height: responsiveSize(40),
-            color: 'white', 
         },
         actionsContainer: { 
-            flex: 1,
+            flex: 0.5,
             flexDirection: 'row', 
             alignItems: 'center', 
             justifyContent: 'flex-end' 
@@ -493,13 +437,13 @@ const getStyles = (width) => {
         addButtonIconSize: responsiveSize(28),
         emptyListText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#6c757d' },
         statusPaid: {
-            backgroundColor: '#28a745',
+            color: '#28a745',
         },
         statusUnpaid: {
-            backgroundColor: '#dc3545',
+            color: '#dc3545',
         },
         statusPending: {
-            backgroundColor: '#ffc107',
+            color: '#ffc107',
         },
     });
 };

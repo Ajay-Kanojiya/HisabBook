@@ -40,10 +40,9 @@ const BillDetailsScreen = () => {
             const user = auth.currentUser;
             if (user) {
                 const shopsRef = collection(db, 'shops');
-                const q = query(shopsRef, where("userEmail", "==", user.email));
+                const q = query(shopsRef, where("email", "==", user.email));
                 const shopsSnap = await getDocs(q);
                 if (!shopsSnap.empty) {
-                    // Assuming there is only one shop document per user or a general shop
                     const shopDoc = shopsSnap.docs[0];
                     setShop(shopDoc.data());
                 } else {
@@ -305,7 +304,7 @@ const getStyles = (width) => {
         headerText: { fontWeight: 'bold' },
         tableRow: { flexDirection: 'row', paddingVertical: responsiveSize(5), borderBottomWidth: 1, borderBottomColor: '#eee'},
         footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', borderTopWidth: 1, borderTopColor: '#000', paddingTop: responsiveSize(10), marginTop: responsiveSize(10) },
-        downloadButton: { backgroundColor: '#007bff', padding: responsiveSize(15), alignItems: 'center', justifyContent: 'center', margin: responsive.size(20), borderRadius: responsiveSize(10) },
+        downloadButton: { backgroundColor: '#007bff', padding: responsiveSize(15), alignItems: 'center', justifyContent: 'center', margin: responsiveSize(20), borderRadius: responsiveSize(10) },
         downloadButtonText: { color: 'white', fontSize: responsiveSize(18), fontWeight: 'bold' },
     });
 }
