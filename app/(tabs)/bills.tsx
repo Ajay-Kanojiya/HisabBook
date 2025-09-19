@@ -288,6 +288,8 @@ const BillsScreen = () => {
     };
     
     const renderItem = ({ item }) => {
+        const statusColor = item.status === 'Paid' ? styles.statusPaid : item.status === 'Unpaid' ? styles.statusUnpaid : styles.statusPending;
+
         return (
             <View style={styles.itemContainer}>
                 <View style={styles.itemHeader}>
@@ -298,15 +300,16 @@ const BillsScreen = () => {
                     <Text style={styles.itemTotal}>₹{item.total.toFixed(2)}</Text>
                 </View>
                 <View style={styles.itemFooter}>
-                    <View style={styles.statusPickerContainer}>
+                    <View style={[styles.statusPickerContainer, statusColor]}>
                         <Picker
                             selectedValue={item.status}
                             onValueChange={(itemValue) => handleStatusUpdate(item.id, itemValue)}
                             style={styles.statusPicker}
                             itemStyle={styles.pickerItem}
                         >
-                            <Picker.Item label="Unpaid" value="Unpaid" />
+                            <Picker.Item label="Pending" value="Pending" />
                             <Picker.Item label="Paid" value="Paid" />
+                            <Picker.Item label="Unpaid" value="Unpaid" />
                         </Picker>
                     </View>
                     <View style={styles.actionsContainer}>
@@ -355,8 +358,9 @@ const BillsScreen = () => {
                         itemStyle={styles.pickerItem}
                     >
                         <Picker.Item label="All Statuses" value="All" />
-                        <Picker.Item label="Unpaid" value="Unpaid" />
+                        <Picker.Item label="Pending" value="Pending" />
                         <Picker.Item label="Paid" value="Paid" />
+                        <Picker.Item label="Unpaid" value="Unpaid" />
                     </Picker>
                 </View>
             </View>
@@ -456,15 +460,15 @@ const getStyles = (width) => {
         statusPickerContainer: {
             width: 'auto',
             minWidth: 150,
-            borderWidth: 1,
-            borderColor: '#ced4da',
             borderRadius: 8,
             justifyContent: 'center',
             height: responsiveSize(40),
+            paddingHorizontal: 10, 
         },
         statusPicker: { 
             width: '100%',
             height: responsiveSize(40),
+            color: 'white', 
         },
         actionsContainer: { 
             flex: 1,
@@ -488,6 +492,15 @@ const getStyles = (width) => {
         },
         addButtonIconSize: responsiveSize(28),
         emptyListText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#6c757d' },
+        statusPaid: {
+            backgroundColor: '#28a745',
+        },
+        statusUnpaid: {
+            backgroundColor: '#dc3545',
+        },
+        statusPending: {
+            backgroundColor: '#ffc107',
+        },
     });
 };
 
