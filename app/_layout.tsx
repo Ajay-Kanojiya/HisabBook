@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -22,8 +23,9 @@ const InitialLayout = () => {
     if (loading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const isRegisterPage = segments.includes('register');
 
-    if (user && inAuthGroup) {
+    if (user && inAuthGroup && !isRegisterPage) {
       router.replace('/(tabs)/home');
     } else if (!user && !inAuthGroup) {
       router.replace('/(auth)/login');

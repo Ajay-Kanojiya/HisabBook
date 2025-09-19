@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -16,8 +17,8 @@ const NewCustomerScreen = () => {
     const styles = getStyles(width);
 
     const handleSave = async () => {
-        if (!name || !address || !phone) {
-            Alert.alert('Error', 'Please fill in all fields.');
+        if (!name) {
+            Alert.alert('Error', 'Please fill in the customer\'s name.');
             return;
         }
         if (!user) {
@@ -51,27 +52,30 @@ const NewCustomerScreen = () => {
                 <Text style={styles.headerTitle}>Add New Customer</Text>
                 <View style={{width: styles.headerTitle.fontSize}}/>
             </View>
+            <View style={styles.avatarContainer}>
+                <MaterialCommunityIcons name="account-plus-outline" size={styles.avatarIcon.fontSize} color={styles.avatarIcon.color} />
+            </View>
             <View style={styles.form}>
                 <Text style={styles.label}>Name</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder="Enter customer\'s full name"
+                    placeholder="Enter customer's full name"
                     placeholderTextColor="#888"
                     value={name}
                     onChangeText={setName}
                 />
-                <Text style={styles.label}>Address</Text>
+                <Text style={styles.label}>Address (Optional)</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder="Enter customer\'s address"
+                    placeholder="Enter customer's address"
                     placeholderTextColor="#888"
                     value={address}
                     onChangeText={setAddress}
                 />
-                <Text style={styles.label}>Phone</Text>
+                <Text style={styles.label}>Phone (Optional)</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder="Enter customer\'s phone number"
+                    placeholder="Enter customer's phone number"
                     placeholderTextColor="#888"
                     value={phone}
                     onChangeText={setPhone}
@@ -110,6 +114,20 @@ const getStyles = (width) => {
             fontSize: responsiveSize(20),
             fontWeight: 'bold',
             color: '#000',
+        },
+        avatarContainer: {
+            width: responsiveSize(100),
+            height: responsiveSize(100),
+            borderRadius: responsiveSize(50),
+            backgroundColor: '#007bff',
+            justifyContent: 'center',
+            alignItems: 'center',
+            alignSelf: 'center',
+            marginVertical: responsiveSize(20),
+        },
+        avatarIcon: {
+            fontSize: responsiveSize(60),
+            color: 'white',
         },
         form: {
             padding: responsiveSize(20),

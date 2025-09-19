@@ -1,23 +1,35 @@
-import React, { useState, useCallback } from 'react';
+
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput, useWindowDimensions } from 'react-native';
 import { collection, getDocs, query, where, deleteDoc, doc, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/config/firebase';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 const ClothTypesScreen = () => {
     const [clothTypes, setClothTypes] = useState([]);
     const [search, setSearch] = useState('');
+    const [user, setUser] = useState<User | null>(null);
     const router = useRouter();
-    const user = auth.currentUser;
     const { width } = useWindowDimensions();
     const styles = getStyles(width);
 
-    const fetchClothTypes = async () => {
-        if (!user) return;
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            setUser(user);
+        });
+        return unsubscribe; // Unsubscribe on component unmount
+    }, []);
+
+    const fetchClothTypes = useCallback(async () => {
+        if (!user || !user.email) {
+            setClothTypes([]);
+            return;
+        }
         try {
             const clothTypesCollection = collection(db, 'cloth-types');
-            const q = query(clothTypesCollection, where("userEmail", "==", user.email), orderBy("lastModified", "desc"));
+            const q = query(clothTypesCollection, where("userEmail", "==", user.email), orderBy("createdAt", "desc"));
             const clothTypesSnapshot = await getDocs(q);
             const clothTypesList = clothTypesSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
             setClothTypes(clothTypesList);
@@ -25,14 +37,16 @@ const ClothTypesScreen = () => {
             console.error("Error fetching cloth types: ", error);
             Alert.alert("Error", "Could not fetch cloth types.");
         }
-    };
+    }, [user]);
+
+    useEffect(() => {
+        fetchClothTypes();
+    }, [user, fetchClothTypes]);
 
     useFocusEffect(
         useCallback(() => {
-            if (user) {
-                fetchClothTypes();
-            }
-        }, [])
+            fetchClothTypes();
+        }, [fetchClothTypes])
     );
 
     const handleDelete = (id) => {
@@ -73,7 +87,7 @@ const ClothTypesScreen = () => {
     );
 
     const renderItem = ({ item }) => (
-        <View style={styles.itemContainer}>
+        <TouchableOpacity style={styles.itemContainer}>
             <View style={styles.iconContainer}>
                 <MaterialCommunityIcons name={getIconName(item.name)} size={styles.iconSize} color="#007bff" />
             </View>
@@ -82,14 +96,14 @@ const ClothTypesScreen = () => {
                 <Text style={styles.itemPrice}>₹{parseFloat(item.price || 0).toFixed(2)}</Text>
             </View>
             <View style={styles.itemActions}>
-                <TouchableOpacity onPress={() => router.push(`/edit-cloth-type/${item.id}`)}>
+                <TouchableOpacity onPress={(e) => { e.stopPropagation(); router.push(`/edit-cloth-type/${item.id}`)}}>
                     <MaterialCommunityIcons name="pencil-outline" size={styles.iconSize} color="#6c757d" />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleDelete(item.id)} style={{ marginLeft: 15 }}>
+                <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDelete(item.id)}} style={{ marginLeft: 15 }}>
                     <MaterialCommunityIcons name="trash-can-outline" size={styles.iconSize} color="#dc3545" />
                 </TouchableOpacity>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 
     return (

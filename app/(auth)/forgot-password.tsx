@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../../config/firebase'; // Adjust this path
+import { auth } from '@/config/firebase'; // Corrected path
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const ForgotPasswordScreen = () => {
@@ -67,6 +67,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
     padding: 20,
+    justifyContent: 'center', // Center content vertically
   },
   backButton: {
     position: 'absolute',
@@ -75,9 +76,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center', // Center content horizontally
   },
   icon: {
     marginBottom: 20,

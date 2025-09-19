@@ -1,347 +1,263 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity, useWindowDimensions, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+
+import React, { useState, useMemo, memo } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, useWindowDimensions, SafeAreaView } from 'react-native';
+import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { auth, db } from '@/config/firebase';
+import { collection, addDoc } from 'firebase/firestore';
+import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-const RegisterScreen = () => {
-  const [ownerName, setOwnerName] = useState('');
-  const [shopName, setShopName] = useState('');
-  const [email, setEmail] = useState('');
-  const [mobile, setMobile] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [address, setAddress] = useState('');
-  const [emailError, setEmailError] = useState('');
-  const router = useRouter();
-
-  const { width } = useWindowDimensions();
-  const styles = getStyles(width);
-
-  const validateEmail = (email) => {
-    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return regex.test(email);
-  };
-
-  const handleRegister = () => {
-    setEmailError('');
-
-    if (!ownerName || !shopName || !email || !mobile || !password || !confirmPassword || !address) {
-        Alert.alert('Error', 'Please fill in all fields.');
-        return;
-    }
-    if (!validateEmail(email)) {
-        setEmailError('Please enter a valid email address.');
-        return;
-    }
-    if (password !== confirmPassword) {
-        Alert.alert('Error', 'Passwords do not match.');
-        return;
-    }
-
-    createUserWithEmailAndPassword(auth, email, password)
-      .then(async (userCredential) => {
-        const user = userCredential.user;
-        await setDoc(doc(db, 'shop', user.uid), {
-          ownerName: ownerName,
-          shopName: shopName,
-          email: user.email,
-          mobile: mobile,
-          address: address,
-        });
-        Alert.alert('Success', 'You have successfully registered.');
-        router.replace('/(tabs)/home');
-      })
-      .catch((error) => {
-        Alert.alert('Registration Error', error.message);
-      });
-  };
-
-  const getPasswordStrength = () => {
-      if (password.length === 0) return 0;
-      if (password.length < 6) return 1; // Weak
-      if (password.length < 10) return 2; // Medium
-      return 3; // Strong
-  };
-  const strength = getPasswordStrength();
-
-  return (
-    <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-        <ScrollView contentContainerStyle={styles.container}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()}>
-                    <MaterialCommunityIcons name="arrow-left" size={styles.headerTitle.fontSize} color="black" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Shop Owner Registration</Text>
-            </View>
-
-            <View style={styles.iconContainer}>
-                <MaterialCommunityIcons name="shopping-outline" size={styles.title.fontSize * 2} color="#007bff" />
-            </View>
-
-            <Text style={styles.title}>Create your account</Text>
-            <Text style={styles.subtitle}>Please fill in the details to register.</Text>
-
-            <Text style={styles.label}>Shop Name</Text>
-            <View style={styles.inputWrapper}>
-                <TextInput
-                    style={styles.input}
-                    placeholder="The Clean Hub"
-                    placeholderTextColor="#888"
-                    value={shopName}
-                    onChangeText={setShopName}
-                />
-                {shopName.length > 0 && <MaterialCommunityIcons name="check-circle" size={styles.input.fontSize} color="#28a745" style={styles.validationIcon} />}
-            </View>
-
-            <Text style={styles.label}>Owner Name</Text>
-            <View style={styles.inputWrapper}>
-                <TextInput
-                    style={styles.input}
-                    placeholder="John Doe"
-                    placeholderTextColor="#888"
-                    value={ownerName}
-                    onChangeText={setOwnerName}
-                />
-            </View>
-
-            <Text style={styles.label}>Email</Text>
-            <View style={[styles.inputWrapper, emailError ? styles.inputError : {}]}>
-                <TextInput
-                    style={styles.input}
-                    placeholder="john.doe@notanemail"
-                    placeholderTextColor="#888"
-                    value={email}
-                    onChangeText={setEmail}
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                    onBlur={() => !validateEmail(email) && email.length > 0 ? setEmailError('Please enter a valid email address.') : setEmailError('')}
-                />
-                {emailError && <MaterialCommunityIcons name="alert-circle" size={styles.input.fontSize} color="#dc3545" style={styles.validationIcon} />}
-            </View>
-            {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
-
-            <Text style={styles.label}>Mobile Number</Text>
-            <View style={styles.mobileInputContainer}>
-                <Text style={styles.countryCode}>+91</Text>
-                <TextInput
-                    style={styles.mobileInput}
-                    placeholder="Enter your mobile number"
-                    placeholderTextColor="#888"
-                    value={mobile}
-                    onChangeText={setMobile}
-                    keyboardType="phone-pad"
-                />
-            </View>
-            <Text style={styles.helperText}>Please include your country code (e.g., +91).</Text>
-
-            <Text style={styles.label}>Address</Text>
-            <View style={styles.inputWrapper}>
-                <TextInput
-                    style={styles.input}
-                    placeholder="123 Main St, Anytown, USA"
-                    placeholderTextColor="#888"
-                    value={address}
-                    onChangeText={setAddress}
-                />
-            </View>
-
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.inputWrapper}>
-                <TextInput
-                    style={styles.input}
-                    placeholder="••••••••"
-                    placeholderTextColor="#888"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry
-                />
-            </View>
-            <View style={styles.strengthContainer}>
-                <View style={[styles.strengthBar, { width: `${(strength / 3) * 100}%`, backgroundColor: strength === 1 ? '#dc3545' : strength === 2 ? '#ffc107' : '#28a745' }]} />
-            </View>
-            <Text style={styles.strengthText}>{['', 'Weak', 'Medium', 'Strong'][strength]}</Text>
-
-
-            <Text style={styles.label}>Confirm Password</Text>
-            <View style={styles.inputWrapper}>
-                <TextInput
-                    style={styles.input}
-                    placeholder="••••••••"
-                    placeholderTextColor="#888"
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry
-                />
-            </View>
-
-            <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
-                <Text style={styles.registerButtonText}>Register</Text>
-            </TouchableOpacity>
-
-            <View style={styles.footer}>
-                <Text style={styles.footerText}>Already have an account? </Text>
-                <TouchableOpacity onPress={() => router.replace('/(auth)/login')}>
-                    <Text style={styles.signIn}>Sign In</Text>
-                </TouchableOpacity>
-            </View>
-        </ScrollView>
-    </KeyboardAvoidingView>
-  );
-};
-
 const getStyles = (width) => {
-    const baseWidth = 375;
-    const scale = width / baseWidth;
-
+    const scale = width / 375;
     const responsiveSize = (size) => Math.round(size * scale);
 
     return StyleSheet.create({
-        container: {
-            flexGrow: 1,
-            padding: responsiveSize(20),
-            backgroundColor: 'white',
-            justifyContent: 'center',
+        safeArea: {
+            flex: 1,
+            backgroundColor: '#f8f9fa',
+        },
+        mainContainer: {
+            flex: 1,
         },
         header: {
-            flexDirection: 'row',
             alignItems: 'center',
-            marginBottom: responsiveSize(10),
-            position: 'absolute',
-            top: responsiveSize(40),
-            left: responsiveSize(20),
-            zIndex: 1,
+            paddingHorizontal: responsiveSize(20),
+            paddingTop: responsiveSize(40),
+            paddingBottom: responsiveSize(20),
         },
-        headerTitle: {
-            fontSize: responsiveSize(18),
-            fontWeight: 'bold',
-            marginLeft: responsiveSize(20),
-            color: '#000',
-        },
-        iconContainer: {
-            alignItems: 'center',
-            marginVertical: responsiveSize(10),
-        },
-        title: {
-            fontSize: responsiveSize(24),
-            fontWeight: 'bold',
-            textAlign: 'center',
-            color: '#000',
-            marginBottom: responsiveSize(10),
-        },
-        subtitle: {
-            textAlign: 'center',
-            color: '#6c757d',
-            marginBottom: responsiveSize(20),
-            fontSize: responsiveSize(14),
-        },
-        label: {
-            fontSize: responsiveSize(14),
-            color: '#495057',
-            marginBottom: responsiveSize(5),
-            fontWeight: '500',
-        },
-        inputWrapper: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            width: '100%',
-            borderColor: '#ced4da',
-            borderWidth: 1,
-            borderRadius: responsiveSize(8),
-            marginBottom: responsiveSize(5),
-            backgroundColor: '#fff',
-        },
-        input: {
+        formScrollView: {
             flex: 1,
-            height: responsiveSize(45),
-            paddingHorizontal: responsiveSize(15),
-            fontSize: responsiveSize(16),
-            color: '#000',
+            paddingHorizontal: responsiveSize(20),
         },
-        inputError: {
-            borderColor: '#dc3545',
+        scrollContentContainer: {
+            paddingBottom: responsiveSize(20),
         },
-        validationIcon: {
-            marginRight: responsiveSize(10),
+        bottomContainer: {
+            backgroundColor: '#f8f9fa',
         },
-        errorText: {
-            color: '#dc3545',
-            fontSize: responsiveSize(12),
-            marginBottom: responsiveSize(10),
-        },
-        mobileInputContainer: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            borderColor: '#ced4da',
-            borderWidth: 1,
-            borderRadius: responsiveSize(8),
-            backgroundColor: '#fff',
-        },
-        countryCode: {
-            paddingHorizontal: responsiveSize(15),
-            fontSize: responsiveSize(16),
-            color: '#495057',
-        },
-        mobileInput: {
-            flex: 1,
-            height: responsiveSize(45),
-            paddingHorizontal: responsiveSize(10),
-            fontSize: responsiveSize(16),
-            color: '#000',
-        },
-        helperText: {
-            fontSize: responsiveSize(12),
-            color: '#6c757d',
-            marginBottom: responsiveSize(10),
-        },
-        strengthContainer: {
-            height: responsiveSize(4),
-            backgroundColor: '#e9ecef',
-            borderRadius: responsiveSize(2),
-            marginBottom: responsiveSize(5),
-        },
-        strengthBar: {
-            height: '100%',
-            borderRadius: responsiveSize(2),
-        },
-        strengthText: {
-            textAlign: 'right',
-            color: '#6c757d',
-            fontSize: responsiveSize(12),
-            marginBottom: responsiveSize(10),
-        },
-        registerButton: {
-            backgroundColor: '#007bff',
-            paddingVertical: responsiveSize(15),
-            borderRadius: responsiveSize(8),
-            alignItems: 'center',
-            marginTop: responsiveSize(10),
-            marginBottom: responsiveSize(20),
-        },
-        registerButtonText: {
-            color: 'white',
-            fontSize: responsiveSize(16),
-            fontWeight: 'bold',
+        buttonContainer: {
+            paddingHorizontal: responsiveSize(20),
+            paddingTop: responsiveSize(10),
+            paddingBottom: responsiveSize(10),
         },
         footer: {
             flexDirection: 'row',
             justifyContent: 'center',
+            padding: responsiveSize(20),
+            borderTopWidth: 1,
+            borderTopColor: '#e9ecef',
+        },
+        title: {
+            fontSize: responsiveSize(24),
+            fontWeight: 'bold',
+            color: '#333',
+            marginBottom: responsiveSize(5),
+        },
+        subtitle: {
+            fontSize: responsiveSize(16),
+            color: '#888',
+            textAlign: 'center',
+        },
+        label: {
+            fontSize: responsiveSize(14),
+            color: '#333',
+            marginBottom: responsiveSize(5),
+            fontWeight: '500',
+        },
+        inputContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#fff',
+            borderRadius: responsiveSize(10),
+            paddingHorizontal: responsiveSize(15),
+            borderWidth: 1,
+            borderColor: '#ddd',
+        },
+        inputError: {
+            borderColor: '#dc3545',
+        },
+        inputIcon: {
+            marginRight: responsiveSize(10),
+        },
+        input: {
+            flex: 1,
+            height: responsiveSize(50),
+            fontSize: responsiveSize(16),
+            color: '#333',
+        },
+        errorText: {
+            color: '#dc3545',
+            fontSize: responsiveSize(12),
+            marginTop: responsiveSize(4),
+            marginLeft: responsiveSize(5)
+        },
+        formErrorText: {
+            color: '#dc3545',
+            fontSize: responsiveSize(14),
+            textAlign: 'center',
+            marginBottom: responsiveSize(10),
+        },
+        button: {
+            backgroundColor: '#007bff',
+            paddingVertical: responsiveSize(15),
+            borderRadius: responsiveSize(10),
+            alignItems: 'center',
+        },
+        buttonText: {
+            color: '#fff',
+            fontSize: responsiveSize(18),
+            fontWeight: 'bold',
         },
         footerText: {
-            color: '#000',
-            fontSize: responsiveSize(14),
+            fontSize: responsiveSize(16),
+            color: '#888',
         },
-        signIn: {
+        footerLink: {
+            fontSize: responsiveSize(16),
             color: '#007bff',
             fontWeight: 'bold',
-            fontSize: responsiveSize(14),
         },
     });
-}
+};
+
+const Input = memo(({ label, placeholder, value, onChangeText, secureTextEntry = false, keyboardType = 'default', autoCapitalize = 'sentences', error, aname, styles }) => (
+    <View style={{ marginBottom: 15 }}>
+        <Text style={styles.label}>{label}</Text>
+        <View style={[styles.inputContainer, error ? styles.inputError : {}]}>
+            <MaterialCommunityIcons name={aname} size={20} color="#888" style={styles.inputIcon} />
+            <TextInput
+                style={styles.input}
+                placeholder={placeholder}
+                value={value}
+                onChangeText={onChangeText}
+                secureTextEntry={secureTextEntry}
+                keyboardType={keyboardType}
+                autoCapitalize={autoCapitalize}
+                placeholderTextColor="#888"
+            />
+        </View>
+        {error && <Text style={styles.errorText}>{error}</Text>}
+    </View>
+));
+
+const RegisterScreen = () => {
+    const [ownerName, setOwnerName] = useState('');
+    const [shopName, setShopName] = useState('');
+    const [email, setEmail] = useState('');
+    const [mobile, setMobile] = useState('');
+    const [address, setAddress] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState<{ [key: string]: string }>({});
+    const [formError, setFormError] = useState('');
+    const router = useRouter();
+    const { width } = useWindowDimensions();
+    const styles = useMemo(() => getStyles(width), [width]);
+
+    const validate = () => {
+        const newErrors: { [key: string]: string } = {};
+        const emailRegex = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/;
+
+        if (!ownerName) newErrors.ownerName = 'Owner name is required';
+        if (!shopName) newErrors.shopName = 'Shop name is required';
+        if (!email) {
+            newErrors.email = 'Email is required';
+        } else if (!emailRegex.test(email)) {
+            newErrors.email = 'Please enter a valid email address';
+        }
+        if (!mobile) newErrors.mobile = 'Mobile number is required';
+        if (!address) newErrors.address = 'Address is required';
+        if (password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+        if (!confirmPassword) {
+            newErrors.confirmPassword = 'Please confirm your password';
+        } else if (password !== confirmPassword) {
+            newErrors.confirmPassword = 'Passwords do not match';
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleRegister = async () => {
+        setFormError('');
+        if (!validate()) {
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+
+            await addDoc(collection(db, 'users'), {
+                uid: user.uid,
+                ownerName,
+                shopName,
+                email,
+                mobile,
+                address,
+                createdAt: new Date(),
+            });
+
+            await signOut(auth);
+
+            router.replace('/signup-success');
+        } catch (error: any) {
+            if (error.code === 'auth/email-already-in-use') {
+                setErrors({ email: 'This email address is already in use.' });
+            } else {
+                setFormError('An unexpected error occurred during registration.');
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <SafeAreaView style={styles.safeArea}>
+            <KeyboardAvoidingView
+                style={styles.mainContainer}
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+            >
+                <View style={{flex: 1}}>
+                    <View style={styles.header}>
+                        <Text style={styles.title}>Create Your Account</Text>
+                        <Text style={styles.subtitle}>Fill in the details below to get started</Text>
+                    </View>
+
+                    <ScrollView
+                        style={styles.formScrollView}
+                        contentContainerStyle={styles.scrollContentContainer}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        <Input aname="account-outline" error={errors.ownerName} label="Owner Name" placeholder="John Doe" value={ownerName} onChangeText={setOwnerName} styles={styles} />
+                        <Input aname="storefront-outline" error={errors.shopName} label="Shop Name" placeholder="The Clean Hub" value={shopName} onChangeText={setShopName} styles={styles} />
+                        <Input aname="email-outline" error={errors.email} label="Email" placeholder="you@example.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" styles={styles} />
+                        <Input aname="phone-outline" error={errors.mobile} label="Mobile Number" placeholder="123-456-7890" value={mobile} onChangeText={setMobile} keyboardType="phone-pad" styles={styles} />
+                        <Input aname="map-marker-outline" error={errors.address} label="Address" placeholder="123 Main St, Anytown" value={address} onChangeText={setAddress} styles={styles} />
+                        <Input aname="lock-outline" error={errors.password} label="Password" placeholder="Enter your password" value={password} onChangeText={setPassword} secureTextEntry styles={styles} />
+                        <Input aname="lock-check-outline" error={errors.confirmPassword} label="Confirm Password" placeholder="Confirm your password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry styles={styles} />
+                    </ScrollView>
+
+                    <View style={styles.bottomContainer}>
+                        {formError ? <Text style={styles.formErrorText}>{formError}</Text> : null}
+                        <View style={styles.buttonContainer}>
+                            <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={loading}>
+                                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Register</Text>}
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.footer}>
+                            <Text style={styles.footerText}>Already have an account? </Text>
+                            <TouchableOpacity onPress={() => router.replace('/(auth)/login')}>
+                                <Text style={styles.footerLink}>Sign In</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
+    );
+};
 
 export default RegisterScreen;

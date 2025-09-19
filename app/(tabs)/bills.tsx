@@ -1,12 +1,12 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
     View, Text, StyleSheet, FlatList, TouchableOpacity, Alert,
-    useWindowDimensions, ActivityIndicator
+    useWindowDimensions, ActivityIndicator, RefreshControl, Platform
 } from 'react-native';
-import { collection, getDocs, query, where, doc, orderBy, getDoc, updateDoc, limit, startAfter, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, orderBy, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/config/firebase';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { printToFileAsync } from 'expo-print';
@@ -15,87 +15,99 @@ import { shareAsync } from 'expo-sharing';
 const BillsScreen = () => {
     const [bills, setBills] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [customers, setCustomers] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState('All');
     const [selectedStatus, setSelectedStatus] = useState('All');
+    const [shop, setShop] = useState(null);
     
     const router = useRouter();
     const user = auth.currentUser;
     const { width } = useWindowDimensions();
     const styles = getStyles(width);
 
-    const fetchCustomers = async () => {
-        if (!user) return;
-        try {
-            const customersCollection = collection(db, 'customers');
-            const q = query(customersCollection, where("userEmail", "==", user.email));
-            const customersSnapshot = await getDocs(q);
-            const customersList = customersSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-            setCustomers(customersList);
-        } catch (error) {
-            console.error("Error fetching customers: ", error);
-        }
-    };
-
-    const fetchBills = async () => {
+    const fetchData = useCallback(async (isMounted) => {
         if (!user) return;
         setLoading(true);
-
         try {
+            // Fetch Shop Details
+            const shopsRef = collection(db, 'shops');
+            const qShops = query(shopsRef, where("userEmail", "==", user.email));
+            const shopsSnap = await getDocs(qShops);
+            if (isMounted && !shopsSnap.empty) {
+                setShop(shopsSnap.docs[0].data());
+            }
+
+            // Fetch Customers
+            const customersCollection = collection(db, 'customers');
+            const qCustomers = query(customersCollection, where("userEmail", "==", user.email));
+            const customersSnapshot = await getDocs(qCustomers);
+            if (isMounted) {
+                const customersList = customersSnapshot.docs.map(d => ({ ...d.data(), id: d.id }));
+                setCustomers(customersList);
+            }
+
+            // Fetch Bills
             let billsQuery = query(
                 collection(db, 'bills'),
                 where("userEmail", "==", user.email),
                 orderBy("createdAt", "desc")
             );
-            
             if (selectedCustomer !== 'All') {
                 billsQuery = query(billsQuery, where("customerId", "==", selectedCustomer));
             }
-
             if (selectedStatus !== 'All') {
                 billsQuery = query(billsQuery, where("status", "==", selectedStatus));
             }
-
             const billsSnapshot = await getDocs(billsQuery);
 
-            if (!billsSnapshot.empty) {
-                const billsList = await Promise.all(billsSnapshot.docs.map(async (billDoc) => {
-                    const billData = billDoc.data();
-                    let customerName = 'N/A';
-                    if (billData.customerId) {
+            if (isMounted) {
+                if (!billsSnapshot.empty) {
+                    const billsList = await Promise.all(billsSnapshot.docs.map(async (billDoc) => {
+                        const billData = billDoc.data();
                         const customerRef = doc(db, "customers", billData.customerId);
                         const customerSnap = await getDoc(customerRef);
-                        customerName = customerSnap.exists() ? customerSnap.data().name : 'N/A';
-                    }
-                    return {
-                        ...billData,
-                        id: billDoc.id,
-                        customerName,
-                        date: billData.createdAt.toDate(),
-                    };
-                }));
-                
-                setBills(billsList);
-            } else {
-                setBills([]);
+                        const customerName = customerSnap.exists() ? customerSnap.data().name : 'N/A';
+                        return {
+                            ...billData,
+                            id: billDoc.id,
+                            customerName,
+                            date: billData.createdAt.toDate(),
+                        };
+                    }));
+                    setBills(billsList);
+                } else {
+                    setBills([]);
+                }
             }
-
         } catch (error) {
-            console.error("Error fetching bills: ", error);
-            Alert.alert("Error", "Could not fetch bills.");
+            console.error("Error fetching data: ", error);
+            if(isMounted) Alert.alert("Error", "Could not fetch data.");
         } finally {
-            setLoading(false);
+            if (isMounted) setLoading(false);
         }
-    };
-    
-    useEffect(() => {
-        fetchCustomers();
-    }, [user]);
-
-    useEffect(() => {
-        fetchBills();
     }, [user, selectedCustomer, selectedStatus]);
 
+    useFocusEffect(
+        useCallback(() => {
+            let isMounted = true;
+            fetchData(isMounted);
+            return () => {
+                isMounted = false;
+            };
+        }, [fetchData])
+    );
+
+    const onRefresh = useCallback(() => {
+        let isMounted = true;
+        setRefreshing(true);
+        fetchData(isMounted).then(() => {
+            if(isMounted) setRefreshing(false)
+        });
+         return () => {
+            isMounted = false;
+        };
+    }, [fetchData]);
 
     const numberToWords = (num) => {
         const a = ['', 'one ', 'two ', 'three ', 'four ', 'five ', 'six ', 'seven ', 'eight ', 'nine ', 'ten ', 'eleven ', 'twelve ', 'thirteen ', 'fourteen ', 'fifteen ', 'sixteen ', 'seventeen ', 'eighteen ', 'nineteen '];
@@ -109,53 +121,19 @@ const BillsScreen = () => {
         str += (n[3] != 0) ? (a[Number(n[3])] || b[n[3][0]] + ' ' + a[n[3][1]]) + 'thousand ' : '';
         str += (n[4] != 0) ? (a[Number(n[4])] || b[n[4][0]] + ' ' + a[n[4][1]]) + 'hundred ' : '';
         str += (n[5] != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n[5])] || b[n[5][0]] + ' ' + a[n[5][1]]) + 'only ' : '';
-        return str;
+        return str.charAt(0).toUpperCase() + str.slice(1);
     }
     
     const handleGenerateAndDownloadPdf = async (bill) => {
+        if (!shop) {
+            Alert.alert("Error", "Shop details not loaded yet. Please try again in a moment.");
+            return;
+        }
+
         try {
-            let order = { items: [] };
-            let customer = { name: bill.customerName, address: 'N/A', phone: 'N/A' };
-            let shop = null;
-
-            if(user){
-                const shopsRef = collection(db, 'shops');
-                const q = query(shopsRef, where("userEmail", "==", user.email));
-                const shopsSnap = await getDocs(q);
-                if (!shopsSnap.empty) {
-                    shop = shopsSnap.docs[0].data();
-                } else {
-                    Alert.alert("Error", "Shop details could not be found.");
-                    return;
-                }
-            }
-
-            if (bill.orderIds && bill.orderIds.length > 0) {
-                const orderRef = doc(db, "orders", bill.orderIds[0]);
-                const orderSnap = await getDoc(orderRef);
-                if (orderSnap.exists()) {
-                    const orderData = orderSnap.data();
-                    const itemsWithClothTypeNames = await Promise.all(orderData.items.map(async (item) => {
-                        if (item.clothTypeId) {
-                            const clothTypeRef = doc(db, "cloth-types", item.clothTypeId);
-                            const clothTypeSnap = await getDoc(clothTypeRef);
-                            return { ...item, clothTypeName: clothTypeSnap.exists() ? clothTypeSnap.data().name : 'N/A' };
-                        }
-                        return item;
-                    }));
-                    order = { ...orderData, items: itemsWithClothTypeNames };
-                }
-            }
-
-            if (bill.customerId) {
-                const customerRef = doc(db, "customers", bill.customerId);
-                const customerSnap = await getDoc(customerRef);
-                if (customerSnap.exists()) {
-                    customer = customerSnap.data();
-                }
-            }
+            const customer = customers.find(c => c.id === bill.customerId);
             
-            const itemsHtml = order.items.map((item, index) => `
+            const itemsHtml = bill.items.map((item, index) => `
                 <tr>
                     <td>${index + 1}</td>
                     <td style="text-align: left;">${item.clothTypeName || 'N/A'}</td>
@@ -202,9 +180,9 @@ const BillsScreen = () => {
                         </div>
                     </div>
                     <div class="customer-info">
-                        <div class="info-line"><span class="info-label">Name:</span><span class="info-value">${customer.name}</span></div>
-                        <div class="info-line"><span class="info-label">Address:</span><span class="info-value">${customer.address || 'N/A'}</span></div>
-                        <div class="info-line"><span class="info-label">Phone:</span><span class="info-value">${customer.phone || 'N/A'}</span></div>
+                        <div class="info-line"><span class="info-label">Name:</span><span class="info-value">${customer?.name || 'N/A'}</span></div>
+                        <div class="info-line"><span class="info-label">Address:</span><span class="info-value">${customer?.address || 'N/A'}</span></div>
+                        <div class="info-line"><span class="info-label">Phone:</span><span class="info-value">${customer?.phone || 'N/A'}</span></div>
                     </div>
                     <table class="item-table">
                         <thead>
@@ -220,8 +198,22 @@ const BillsScreen = () => {
             </body>
             </html>`;
     
-            const { uri } = await printToFileAsync({ html: htmlContent });
-            await shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            const date = new Date(bill.date);
+            const month = monthNames[date.getMonth()];
+            const year = date.getFullYear();
+
+            const safeCustomerName = customer?.name.replace(/[^a-z0-9]/gi, '_') || 'customer';
+            const fileName = `${safeCustomerName}-${bill.id.substring(0,5)}-${month}${year}.pdf`;
+            
+            const { uri } = await printToFileAsync({ html: htmlContent, base64: false });
+            
+            if (Platform.OS === "ios") {
+                await shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf', dialogTitle: fileName });
+            } else {
+                await shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf', dialogTitle: fileName, filename: fileName });
+            }
+
         } catch (error) {
             console.error('Error generating PDF:', error);
             Alert.alert('Error', 'Could not generate PDF.');
@@ -237,6 +229,31 @@ const BillsScreen = () => {
             console.error("Error updating status: ", error);
             Alert.alert("Error", "Failed to update status.");
         }
+    };
+
+    const handleDeleteBill = (billId) => {
+        Alert.alert(
+            "Delete Bill",
+            "Are you sure you want to delete this bill? This action cannot be undone.",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await deleteDoc(doc(db, "bills", billId));
+                            let isMounted = true;
+                            fetchData(isMounted); // Refetch bills after deletion
+                            return () => { isMounted = false; };
+                        } catch (error) {
+                            console.error("Error deleting bill: ", error);
+                            Alert.alert("Error", "Could not delete bill.");
+                        }
+                    },
+                },
+            ]
+        );
     };
 
     const renderItem = ({ item }) => {
@@ -270,6 +287,9 @@ const BillsScreen = () => {
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => handleGenerateAndDownloadPdf(item)} style={{marginLeft: 10}}>
                             <MaterialCommunityIcons name="file-pdf-box" size={styles.iconSize} color="#DC3545" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleDeleteBill(item.id)} style={{marginLeft: 10}}>
+                            <MaterialCommunityIcons name="delete" size={styles.iconSize} color="#DC3545" />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -315,7 +335,7 @@ const BillsScreen = () => {
             </View>
 
             {loading ? (
-                <ActivityIndicator size="large" color="#007bff" style={{ flex: 1, justifyContent: 'center' }}/>
+                <ActivityIndicator size="large" color="#007bff" style={{ position: 'absolute', top: '50%', left: '50%', zIndex: 10 }}/>
             ) : (
                 <FlatList
                     data={bills}
@@ -323,6 +343,9 @@ const BillsScreen = () => {
                     keyExtractor={item => item.id}
                     contentContainerStyle={styles.listContainer}
                     ListEmptyComponent={<Text style={styles.emptyListText}>No bills found.</Text>}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#007bff']} tintColor={'#007bff'} />
+                    }
                 />
             )}
             <TouchableOpacity style={styles.addButton} onPress={() => router.push('/generate-bill')}>

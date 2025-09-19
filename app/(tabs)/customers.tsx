@@ -1,23 +1,35 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput, useWindowDimensions, Image } from 'react-native';
+
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput, useWindowDimensions } from 'react-native';
 import { collection, getDocs, query, where, deleteDoc, doc, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/config/firebase';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 const CustomersScreen = () => {
     const [customers, setCustomers] = useState([]);
     const [search, setSearch] = useState('');
+    const [user, setUser] = useState<User | null>(null);
     const router = useRouter();
-    const user = auth.currentUser;
     const { width } = useWindowDimensions();
     const styles = getStyles(width);
 
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            setUser(user);
+        });
+        return unsubscribe; // Unsubscribe on component unmount
+    }, []);
+
     const fetchCustomers = useCallback(async () => {
-        if (!user) return;
+        if (!user || !user.email) {
+            setCustomers([]);
+            return;
+        }
         try {
             const customersCollection = collection(db, 'customers');
-            const q = query(customersCollection, where("userEmail", "==", user.email), orderBy("lastModified", "desc"));
+            const q = query(customersCollection, where("userEmail", "==", user.email), orderBy("createdAt", "desc"));
             const customersSnapshot = await getDocs(q);
             const customersList = customersSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
             setCustomers(customersList);
@@ -27,7 +39,15 @@ const CustomersScreen = () => {
         }
     }, [user]);
 
-    useFocusEffect(fetchCustomers);
+    useEffect(() => {
+        fetchCustomers();
+    }, [user, fetchCustomers]);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchCustomers();
+        }, [fetchCustomers])
+    );
 
     const handleDelete = (id) => {
         Alert.alert(
@@ -58,7 +78,9 @@ const CustomersScreen = () => {
 
     const renderItem = ({ item }) => (
         <TouchableOpacity onPress={() => router.push(`/customer/${item.id}`)} style={styles.itemContainer}>
-            <Image source={{ uri: 'https://i.pravatar.cc/150?u=' + item.id }} style={styles.avatar} />
+            <View style={styles.avatarContainer}>
+                <MaterialCommunityIcons name="account" size={styles.avatarIconSize} color="#007bff" />
+            </View>
             <View style={styles.itemInfo}>
                 <Text style={styles.itemName}>{item.name}</Text>
                 <Text style={styles.itemSubtitle}>{item.address}</Text>
@@ -152,10 +174,13 @@ const getStyles = (width) => {
             borderBottomWidth: 1,
             borderBottomColor: '#f0f0f0',
         },
-        avatar: {
+        avatarContainer: {
             width: responsiveSize(40),
             height: responsiveSize(40),
             borderRadius: responsiveSize(20),
+            backgroundColor: '#e7f0ff',
+            justifyContent: 'center',
+            alignItems: 'center',
             marginRight: responsiveSize(15),
         },
         itemInfo: {
@@ -192,6 +217,7 @@ const getStyles = (width) => {
             shadowRadius: 4,
         },
         iconSize: responsiveSize(22),
+        avatarIconSize: responsiveSize(24),
         searchIconSize: responsiveSize(20),
         addButtonIconSize: responsiveSize(28),
     });

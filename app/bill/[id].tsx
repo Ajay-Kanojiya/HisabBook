@@ -39,14 +39,14 @@ const BillDetailsScreen = () => {
         try {
             const user = auth.currentUser;
             if (user) {
-                const shopsRef = collection(db, 'shops');
-                const q = query(shopsRef, where("userEmail", "==", user.email));
-                const shopsSnap = await getDocs(q);
-                if (!shopsSnap.empty) {
-                    const shopDoc = shopsSnap.docs[0];
-                    setShop(shopDoc.data());
+                const usersRef = collection(db, 'users');
+                const q = query(usersRef, where("email", "==", user.email));
+                const usersSnap = await getDocs(q);
+                if (!usersSnap.empty) {
+                    const userDoc = usersSnap.docs[0];
+                    setShop(userDoc.data());
                 } else {
-                    Alert.alert("Error", "Shop details could not be found.");
+                    Alert.alert("Error", "Shop details could not be found for the current user.");
                 }
             }
 
@@ -65,25 +65,12 @@ const BillDetailsScreen = () => {
                     }
                 }
 
-                if (billData.orderIds && billData.orderIds.length > 0) {
-                    const orderRef = doc(db, 'orders', billData.orderIds[0]);
-                    const orderSnap = await getDoc(orderRef);
-                    if (orderSnap.exists()) {
-                        const orderData = orderSnap.data();
-                        const itemsWithClothTypeNames = await Promise.all(orderData.items.map(async (item) => {
-                            if (item.clothTypeId) {
-                                const clothTypeRef = doc(db, "cloth-types", item.clothTypeId);
-                                const clothTypeSnap = await getDoc(clothTypeRef);
-                                if (clothTypeSnap.exists()) {
-                                    return { ...item, clothTypeName: clothTypeSnap.data().name };
-                                }
-                            }
-                            return item;
-                        }));
-                        setOrder({ ...orderData, items: itemsWithClothTypeNames });
-                    }
+                if (billData.items) {
+                    setOrder({ items: billData.items });
                 }
+
             } else {
+                setBill(null);
                 Alert.alert("Error", "Bill not found.");
                 router.back();
             }
@@ -95,7 +82,11 @@ const BillDetailsScreen = () => {
         }
     };
 
-    useFocusEffect(useCallback(() => { if (id) fetchBillDetails(); }, [id]));
+    useFocusEffect(useCallback(() => {
+        if (id) {
+            fetchBillDetails();
+        }
+    }, [id]));
 
     const handleDownloadPdf = async () => {
         if (!bill || !customer || !order || !shop) {
@@ -125,10 +116,10 @@ const BillDetailsScreen = () => {
         .slogan { margin-bottom: 10px; }
         .invoice-details { text-align: right; }
         .invoice-title { font-size: 28px; font-weight: bold; color: #E74C3C; margin-bottom: 10px;}
-        .customer-info { margin-top: 30px; text-align: center; }
+        .customer-info { margin-top: 30px; text-align: left; }
         .info-line { display: flex; margin-bottom: 10px; }
-        .info-label { font-weight: bold; }
-        .info-value { border-bottom: 1px dotted #aaa; flex-grow: 1; margin-left: 10px; }
+        .info-label { font-weight: bold; width: 120px; }
+        .info-value { flex-grow: 1; }
         .item-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         .item-table th, .item-table td { border: 1px solid #ddd; padding: 8px; text-align: center; }
         .item-table th { background-color: #f2f2f2; }
@@ -190,8 +181,22 @@ const BillDetailsScreen = () => {
 </html>`;
 
         try {
-            const { uri } = await printToFileAsync({ html: htmlContent });
-            await shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            const date = new Date(bill.date);
+            const month = monthNames[date.getMonth()];
+            const year = date.getFullYear();
+
+            const fileName = `${customer.name.replace(/\s+/g, '_')}-${bill.id.substring(0, 5)}-${month}${year}.pdf`;
+            const { uri } = await printToFileAsync({ 
+                html: htmlContent,
+                base64: false,
+            });
+            await shareAsync(uri, { 
+                UTI: '.pdf', 
+                mimeType: 'application/pdf', 
+                dialogTitle: fileName,
+                filename: fileName
+            });
         } catch (error) {
             console.error('Error generating PDF:', error);
             Alert.alert('Error', 'Could not generate or share the PDF.');
@@ -203,7 +208,11 @@ const BillDetailsScreen = () => {
     }
 
     if (!bill) {
-        return <View style={styles.centered}><Text>Bill not found.</Text></View>;
+        return (
+            <View style={styles.centered}>
+                <Text>Bill not found.</Text>
+            </View>
+        );
     }
 
     return (
@@ -286,8 +295,8 @@ const getStyles = (width) => {
     const responsiveSize = (size) => Math.round(size * scale);
 
     return StyleSheet.create({
-        centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-        container: { flex: 1, backgroundColor: '#ffffff', paddingTop: responsiveSize(40) },
+        centered: { flexGrow: 1, justifyContent: 'center', alignItems: 'center' },
+        container: { flex: 1, backgroundColor: '#ffffff' },
         invoiceBox: { padding: responsiveSize(20), flex: 1 },
         header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: responsiveSize(20) },
         companyDetails: { flex: 1 },
@@ -295,7 +304,7 @@ const getStyles = (width) => {
         slogan: { marginBottom: responsiveSize(10), fontStyle: 'italic' },
         invoiceDetails: { alignItems: 'flex-end' },
         invoiceTitle: { fontSize: responsiveSize(28), fontWeight: 'bold', color: '#E74C3C', marginBottom: responsiveSize(10) },
-        customerInfo: { marginTop: responsiveSize(30), marginBottom: responsiveSize(20), alignItems: 'center' },
+        customerInfo: { marginTop: responsiveSize(30), marginBottom: responsiveSize(20), alignItems: 'flex-start' },
         infoLine: { flexDirection: 'row', alignItems: 'center', marginBottom: responsiveSize(10) },
         infoLabel: { fontWeight: 'bold', marginRight: responsiveSize(5) },
         infoValue: { flex: 1, borderBottomWidth: 1, borderBottomColor: '#ccc', paddingBottom: responsiveSize(2), borderStyle: 'dotted' },

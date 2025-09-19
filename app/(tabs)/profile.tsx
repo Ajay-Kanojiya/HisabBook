@@ -1,121 +1,211 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, Alert, useWindowDimensions } from 'react-native';
-import { useRouter } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Image, Alert } from 'react-native';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
-import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter, useFocusEffect } from 'expo-router';
 
 const ProfileScreen = () => {
+    const [user, setUser] = useState<User | null>(null);
+    const [userInfo, setUserInfo] = useState<any>(null);
     const router = useRouter();
-    const user = auth.currentUser;
-    const { width } = useWindowDimensions();
-    const styles = getStyles(width);
-    const [shop, setShop] = useState(null);
 
     useEffect(() => {
-        if (user) {
-            const fetchShopData = async () => {
-                const shopsRef = collection(db, 'shops');
-                const q = query(shopsRef, where("userEmail", "==", user.email));
-                const querySnapshot = await getDocs(q);
-                if (querySnapshot.empty) {
-                    console.log("No shop details found, creating new one.");
-                    const newShop = {
-                        userEmail: user.email,
-                        shopName: "The Laundry Hub",
-                        address: "123 Main Street, Anytown",
-                        operatingHours: "10:00 AM - 8:00 PM",
-                    };
-                    try {
-                        const docRef = await addDoc(shopsRef, newShop);
-                        setShop({ ...newShop, id: docRef.id });
-                        console.log("New shop details created: ", { ...newShop, id: docRef.id });
-                    } catch (error) {
-                        console.error("Error creating shop details: ", error);
-                        Alert.alert("Error", "Could not create shop details.");
-                    }
-                } else {
-                    const shopData = querySnapshot.docs[0].data();
-                    console.log("Shop details fetched: ", shopData);
-                    setShop({ ...shopData, id: querySnapshot.docs[0].id });
-                }
-            };
-            fetchShopData();
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            setUser(user);
+        });
+        return unsubscribe;
+    }, []);
+
+    const fetchUserInfo = useCallback(async () => {
+        if (!user || !user.email) {
+            setUserInfo(null);
+            return;
+        }
+
+        try {
+            const usersCollection = collection(db, 'users');
+            const q = query(usersCollection, where("email", "==", user.email));
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                const userData = querySnapshot.docs[0].data();
+                setUserInfo(userData);
+            } else {
+                setUserInfo({ name: user.email.split('@')[0], email: user.email });
+            }
+        } catch (error) {
+            console.error("Error fetching user info: ", error);
+            Alert.alert("Error", "Could not fetch user information.");
         }
     }, [user]);
 
-    const handleLogout = () => {
-        auth.signOut().then(() => {
-            router.replace('/(auth)/login');
-        }).catch((error) => {
-            Alert.alert('Logout Error', error.message);
-        });
+    useFocusEffect(
+        useCallback(() => {
+            fetchUserInfo();
+        }, [fetchUserInfo])
+    );
+
+    const handleLogout = async () => {
+        await auth.signOut();
+        router.replace('/(auth)/login');
+    };
+
+    const renderAvatar = () => {
+        if (userInfo?.photoURL) {
+            return <Image source={{ uri: userInfo.photoURL }} style={styles.avatar} />;
+        }
+        return (
+            <View style={styles.avatar}>
+                <MaterialCommunityIcons name="account" size={60} color="#007bff" />
+            </View>
+        );
     };
 
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Profile</Text>
-                <TouchableOpacity>
-                    <MaterialCommunityIcons name="pencil" size={styles.headerTitle.fontSize} color="#007bff" />
-                </TouchableOpacity>
-            </View>
-            
-            <View style={styles.profileSection}>
-                <Image 
-                    source={{ uri: 'https://via.placeholder.com/100' }} // Replace with actual user image
-                    style={styles.profileImage}
-                />
-                <Text style={styles.profileName}>{user ? user.email.split('@')[0] : 'User'}</Text>
-                <Text style={styles.profileEmail}>{user ? user.email : 'No email provided'}</Text>
             </View>
 
-            <View style={styles.infoSection}>
-                <Text style={styles.sectionTitle}>Shop Information</Text>
-                <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Shop Name</Text>
-                    <Text style={styles.infoValue}>{shop ? shop.shopName : 'Loading...'}</Text>
+            <View style={styles.profileContainer}>
+                {renderAvatar()}
+                <Text style={styles.profileName}>{userInfo?.ownerName || ''}</Text>
+                <Text style={styles.profileEmail}>{user?.email || ''}</Text>
+                <View style={styles.phoneContainer}>
+                    <MaterialCommunityIcons name="phone-outline" size={16} color="#6c757d" />
+                    <Text style={styles.profilePhone}>{userInfo?.mobile || 'Not set'}</Text>
                 </View>
-                 <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Shop Address</Text>
-                    <Text style={styles.infoValue}>{shop ? shop.address : 'Loading...'}</Text>
-                </View>
-                 <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Operating Hours</Text>
-                    <Text style={styles.infoValue}>{shop ? shop.operatingHours : 'Loading...'}</Text>
-                </View>
+            </View>
+
+            <View style={styles.infoCard}>
+                <Text style={styles.cardTitle}>Shop Information</Text>
+                <InfoRow icon="storefront-outline" label="Shop Name" value={userInfo?.shopName || 'Not set'} />
+                <InfoRow icon="map-marker-outline" label="Address" value={userInfo?.address || 'Not set'} />
+                <InfoRow icon="clock-outline" label="Operating Hours" value={userInfo?.operatingHours || 'Not set'} />
             </View>
 
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                <MaterialCommunityIcons name="logout" size={styles.logoutButtonText.fontSize} color="white" />
+                <MaterialCommunityIcons name="logout" size={22} color="#dc3545" />
                 <Text style={styles.logoutButtonText}>Logout</Text>
             </TouchableOpacity>
         </SafeAreaView>
     );
 };
 
-const getStyles = (width) => {
-    const baseWidth = 375;
-    const scale = width / baseWidth;
+const InfoRow = ({ icon, label, value }) => (
+    <View style={styles.infoRow}>
+        <MaterialCommunityIcons name={icon} size={22} color="#6c757d" style={styles.infoIcon} />
+        <View>
+            <Text style={styles.infoLabel}>{label}</Text>
+            <Text style={styles.infoValue}>{value}</Text>
+        </View>
+    </View>
+);
 
-    const responsiveSize = (size) => Math.round(size * scale);
-
-    return StyleSheet.create({
-        container: { flex: 1, backgroundColor: '#f8f9fa' },
-        header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: responsiveSize(20), backgroundColor: 'white' },
-        headerTitle: { fontSize: responsiveSize(20), fontWeight: 'bold' },
-        profileSection: { alignItems: 'center', padding: responsiveSize(20), backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#dee2e6' },
-        profileImage: { width: responsiveSize(100), height: responsiveSize(100), borderRadius: responsiveSize(50), marginBottom: responsiveSize(10) },
-        profileName: { fontSize: responsiveSize(22), fontWeight: 'bold' },
-        profileEmail: { fontSize: responsiveSize(16), color: 'gray' },
-        infoSection: { padding: responsiveSize(20), marginTop: responsiveSize(10), backgroundColor: 'white' },
-        sectionTitle: { fontSize: responsiveSize(18), fontWeight: 'bold', marginBottom: responsiveSize(15) },
-        infoRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: responsiveSize(10) },
-        infoLabel: { fontSize: responsiveSize(16), color: '#495057' },
-        infoValue: { fontSize: responsiveSize(16), fontWeight: '500' },
-        logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#dc3545', paddingVertical: responsiveSize(15), marginHorizontal: responsiveSize(20), borderRadius: responsiveSize(10), marginTop: responsiveSize(30) },
-        logoutButtonText: { color: 'white', fontSize: responsiveSize(18), marginLeft: responsiveSize(10) }
-    });
-}
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#f8f9fa',
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+        backgroundColor: '#ffffff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#dee2e6',
+    },
+    headerTitle: {
+        fontSize: 28,
+        fontWeight: 'bold',
+    },
+    profileContainer: {
+        alignItems: 'center',
+        padding: 30,
+        backgroundColor: '#ffffff',
+    },
+    avatar: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: '#e7f3ff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 15,
+    },
+    profileName: {
+        fontSize: 24,
+        fontWeight: '600',
+        marginBottom: 5,
+    },
+    profileEmail: {
+        fontSize: 16,
+        color: '#6c757d',
+    },
+    phoneContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 5,
+    },
+    profilePhone: {
+        fontSize: 16,
+        color: '#6c757d',
+        marginLeft: 5,
+    },
+    infoCard: {
+        backgroundColor: '#ffffff',
+        borderRadius: 10,
+        padding: 20,
+        margin: 20,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+    },
+    cardTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+        paddingBottom: 10,
+    },
+    infoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    infoIcon: {
+        marginRight: 15,
+    },
+    infoLabel: {
+        fontSize: 14,
+        color: '#6c757d',
+    },
+    infoValue: {
+        fontSize: 16,
+        fontWeight: '500',
+    },
+    logoutButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 15,
+        margin: 20,
+        backgroundColor: '#f8d7da',
+        borderRadius: 10,
+    },
+    logoutButtonText: {
+        color: '#dc3545',
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginLeft: 10,
+    },
+});
 
 export default ProfileScreen;

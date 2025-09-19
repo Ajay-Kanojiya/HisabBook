@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Alert, TouchableOpacity, useWindowDimensions, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { collection, addDoc, serverTimestamp, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs, query, where, orderBy, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '@/config/firebase';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -92,6 +92,25 @@ const GenerateBillScreen = () => {
             const totalAmount = orders.reduce((acc, order) => acc + order.total, 0);
             const orderIds = orders.map(order => order.id);
 
+            const allItems = [];
+            const clothTypes = {};
+            const clothTypesQuery = query(collection(db, 'cloth-types'), where("userEmail", "==", user.email));
+            const clothTypesSnapshot = await getDocs(clothTypesQuery);
+            clothTypesSnapshot.forEach(doc => {
+                clothTypes[doc.id] = doc.data().name;
+            });
+
+            orders.forEach(order => {
+                if (order.items) {
+                    order.items.forEach(item => {
+                        allItems.push({
+                            ...item,
+                            clothTypeName: item.clothTypeId ? clothTypes[item.clothTypeId] : 'N/A'
+                        });
+                    });
+                }
+            });
+
             await addDoc(collection(db, 'bills'), {
                 userEmail: user.email,
                 customerId: selectedCustomer,
@@ -101,6 +120,7 @@ const GenerateBillScreen = () => {
                 total: totalAmount,
                 status: 'Pending',
                 orderIds: orderIds,
+                items: allItems,
             });
 
             Alert.alert("Success", "Bill generated successfully!");

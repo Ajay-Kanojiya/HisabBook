@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/config/firebase';
 import { useRouter } from 'expo-router';
@@ -33,6 +32,7 @@ const LoginScreen = () => {
             } else {
                 setFormError("An unexpected error occurred. Please try again.");
             }
+            console.error(error);
         } finally {
             setLoading(false);
         }
@@ -41,13 +41,13 @@ const LoginScreen = () => {
     return (
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.container}>
             <View style={styles.logoContainer}>
-                <Image source={require('@/assets/images/icon.png')} style={styles.logo} />
+                <MaterialCommunityIcons name="tshirt-crew" size={100} color="#007bff" />
                 <Text style={styles.title}>Welcome Back!</Text>
                 <Text style={styles.subtitle}>Sign in to continue</Text>
             </View>
 
             <View style={styles.formContainer}>
-                <View style={[styles.inputContainer, formError ? styles.inputError : {}]}>
+                <View style={styles.inputContainer}>
                     <MaterialCommunityIcons name="email-outline" size={22} color="#888" style={styles.inputIcon} />
                     <TextInput
                         style={styles.input}
@@ -60,7 +60,7 @@ const LoginScreen = () => {
                     />
                 </View>
 
-                <View style={[styles.inputContainer, formError ? styles.inputError : {}]}>
+                <View style={styles.inputContainer}>
                     <MaterialCommunityIcons name="lock-outline" size={22} color="#888" style={styles.inputIcon} />
                     <TextInput
                         style={styles.input}
@@ -77,17 +77,13 @@ const LoginScreen = () => {
                 
                 {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
 
-                <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')} style={styles.forgotPasswordContainer}>
-                    <Text style={styles.forgotPassword}>Forgot Password?</Text>
-                </TouchableOpacity>
-
                 <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
                     {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Login</Text>}
                 </TouchableOpacity>
 
                 <View style={styles.footer}>
                     <Text style={styles.footerText}>Don't have an account? </Text>
-                    <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
+                    <TouchableOpacity onPress={() => router.push('/register')}>
                         <Text style={styles.footerLink}>Sign Up</Text>
                     </TouchableOpacity>
                 </View>
@@ -101,21 +97,15 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         backgroundColor: '#f8f9fa',
-        paddingHorizontal: 30,
     },
     logoContainer: {
         alignItems: 'center',
-        marginBottom: 30,
-    },
-    logo: {
-        width: 80,
-        height: 80,
-        resizeMode: 'contain',
+        marginBottom: 40,
     },
     title: {
-        fontSize: 28,
+        fontSize: 32,
         fontWeight: 'bold',
-        marginTop: 15,
+        marginTop: 20,
         color: '#333',
     },
     subtitle: {
@@ -124,20 +114,20 @@ const styles = StyleSheet.create({
         marginTop: 5,
     },
     formContainer: {
-        width: '100%',
+        paddingHorizontal: 30,
     },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#fff',
         borderRadius: 10,
-        marginBottom: 15,
+        marginBottom: 20,
         paddingHorizontal: 15,
-        borderWidth: 1,
-        borderColor: '#ddd',
-    },
-    inputError: {
-        borderColor: '#dc3545',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
     },
     inputIcon: {
         marginRight: 10,
@@ -151,27 +141,12 @@ const styles = StyleSheet.create({
     eyeIcon: {
         padding: 5,
     },
-    errorText: {
-        color: '#dc3545',
-        textAlign: 'center',
-        marginBottom: 10,
-        fontSize: 14,
-        fontWeight: '500'
-    },
-    forgotPasswordContainer: {
-        alignSelf: 'flex-end',
-        marginBottom: 20,
-    },
-    forgotPassword: {
-        color: '#007bff',
-        fontSize: 14,
-        fontWeight: 'bold',
-    },
     button: {
         backgroundColor: '#007bff',
         paddingVertical: 15,
         borderRadius: 10,
         alignItems: 'center',
+        marginTop: 10,
         elevation: 2,
     },
     buttonText: {
@@ -179,10 +154,16 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
     },
+    errorText: {
+        color: '#dc3545',
+        textAlign: 'center',
+        marginBottom: 10,
+        fontSize: 14,
+    },
     footer: {
         flexDirection: 'row',
         justifyContent: 'center',
-        marginTop: 30,
+        marginTop: 20,
     },
     footerText: {
         fontSize: 16,
